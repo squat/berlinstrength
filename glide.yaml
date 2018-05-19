@@ -1,0 +1,20 @@
+package: github.com/squat/bss
+import:
+- package: github.com/Sirupsen/logrus
+- package: github.com/spf13/pflag
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: golang.org/x/oauth2
+  subpackages:
+  - google
+- package: google.golang.org/api
+  subpackages:
+  - sheets/v4
+  - googleapi
+- package: github.com/gorilla/websocket
+- package: github.com/gorilla/mux
+  version: ^1.6.1
+- package: github.com/rakyll/statik
+  version: ^0.1.1
+- package: github.com/squat/drivefs

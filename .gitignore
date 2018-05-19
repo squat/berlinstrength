@@ -1,0 +1,8 @@
+acme.json
+bin
+dist
+node_modules
+statik
+.container*
+.go
+.push*

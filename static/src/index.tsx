@@ -1,0 +1,83 @@
+import { createBrowserHistory as createHistory } from 'history';
+import * as React from 'react';
+import * as ReactDom from 'react-dom';
+import { Provider } from 'react-redux';
+import { ConnectedRouter, push, routerMiddleware } from 'react-router-redux';
+import { TransitionGroup } from 'react-transition-group';
+import { applyMiddleware, createStore, Store } from 'redux';
+import thunkMiddleware from 'redux-thunk';
+
+import { addSheets, scanClient, scanError, setSheet, setUser, websocket } from './actions';
+import { Fade, LocationFadeRoutes } from './components/fade';
+import { Header } from './components/header';
+import { Instructions, ManualScanInstructions } from './components/instructions';
+import { AuthenticatedRoute } from './components/login';
+import {  RegisterForm } from './components/register';
+import { ScanView } from './components/scan';
+import { SheetView } from './components/sheets';
+import * as state from './reducers';
+import { Client } from './reducers/scan';
+import { Sheet } from './reducers/sheets';
+import { isAuthenticated } from './reducers/user';
+import './style.css';
+
+const history = createHistory();
+const middleware = routerMiddleware(history);
+
+const store: Store<state.All> = createStore(
+    state.reducers,
+    {} as state.All,
+    applyMiddleware(
+        middleware,
+        thunkMiddleware,
+    ),
+);
+
+if (window.hasOwnProperty('state')) {
+    let sid: string = '';
+    store.dispatch(addSheets((window as any).state.sheets as Sheet[]));
+    store.dispatch(setUser((window as any).state.email as string));
+    if ((window as any).state.sheetID !== '') {
+        sid = (window as any).state.sheetID as string;
+        store.dispatch(setSheet(sid, false));
+    } else if (isAuthenticated(store.getState())) {
+        store.dispatch(push('/sheets'));
+    }
+    if ((window as any).state.scanError as string !== '') {
+        store.dispatch(scanError((window as any).state.scanError as string));
+        store.dispatch(push('/scan/error'));
+    }
+    if (((window as any).state.scan as Client).bsID !== '') {
+        store.dispatch(scanClient(((window as any).state.scan as Client)));
+    }
+}
+
+if (isAuthenticated(store.getState())) {
+    const ws: WebSocket = new WebSocket(`ws${document.location.protocol.startsWith('https') ? 's' : ''}://`
+        + document.location.host + '/api/ws');
+    ws.onmessage = (e) => {
+        store.dispatch(websocket(e.data));
+    };
+}
+
+ReactDom.render(
+    <TransitionGroup appear={true}>
+        <Fade>
+            <Provider store={store}>
+                <div>
+                    <Header />
+                    <ConnectedRouter history={history}>
+                        <LocationFadeRoutes>
+                            <AuthenticatedRoute redirect={false} exact={true} path="/" component={Instructions}/>
+                            <AuthenticatedRoute exact={true} path="/scan" component={ManualScanInstructions}/>
+                            <AuthenticatedRoute path="/register" component={RegisterForm}/>
+                            <AuthenticatedRoute path="/sheets" component={SheetView}/>
+                            <AuthenticatedRoute path="/scan/:bsID" component={ScanView}/>
+                        </LocationFadeRoutes>
+                    </ConnectedRouter>
+                </div>
+            </Provider>
+        </Fade>
+    </TransitionGroup>
+    , document.getElementById('main'),
+);
