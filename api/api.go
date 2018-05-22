@@ -33,7 +33,9 @@ import (
 
 const (
 	sheetsQuery     = "mimeType = 'application/vnd.google-apps.spreadsheet'"
-	rowRangeFormat  = "A%d:K"
+	directoryQuery  = "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+	directoryName   = "user_photos"
+	userRange       = "A:K"
 	debtRange       = "DEBT!A:A"
 	visitRange      = "VISIT!A:B"
 	dateFormat      = "02/01/2006"
@@ -53,7 +55,7 @@ func New(config *Config) *API {
 		ClientSecret: config.ClientSecret,
 		RedirectURL:  fmt.Sprintf("%s/callback", config.URL),
 		Endpoint:     googleOAuth2.Endpoint,
-		Scopes:       []string{"profile", "email", sheets.SpreadsheetsScope, drive.DriveReadonlyScope, drive.DriveFileScope},
+		Scopes:       []string{"profile", "email", sheets.SpreadsheetsScope, drive.DriveMetadataReadonlyScope, drive.DriveFileScope},
 	}
 	done := make(chan (struct{}))
 	f := config.File
@@ -168,10 +170,24 @@ func (a *API) broadcastUser(scanID string) {
 	}
 }
 
+// ensureDirectory tries to find the default photo directory and creates one if it does not already exist.
+func ensureDirectory(ctx context.Context, c client) (*drive.File, error) {
+	dirs, err := c.drive.Files.List().Context(ctx).Q(directoryQuery).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list directories: %v", err)
+	}
+	for _, dir := range dirs.Files {
+		if dir.Name == directoryName {
+			return dir, nil
+		}
+	}
+	return c.drive.Files.Create(&drive.File{Name: directoryName, MimeType: "application/vnd.google-apps.folder"}).Context(ctx).Fields(googleapi.Field("id")).Do()
+}
+
 // findUser will look for a user in the specified sheet by either BSID or RFID, and return a pointer to the user, the row of the user in the spreadsheet, and any error.
 func findUser(sid, scanID string, scanIDColumn int, c client) (*user, int, error) {
 	var i int
-	vr, err := c.sheets.Spreadsheets.Values.Get(sid, fmt.Sprintf(rowRangeFormat, 2)).MajorDimension("ROWS").Do()
+	vr, err := c.sheets.Spreadsheets.Values.Get(sid, userRange).MajorDimension("ROWS").Do()
 	if err != nil {
 		return nil, i, fmt.Errorf("failed to get spreadsheet data: %v", err)
 	}
@@ -283,7 +299,7 @@ func (a *API) registerHandler(w http.ResponseWriter, r *http.Request) {
 		MajorDimension: "ROWS",
 		Values:         [][]interface{}{row},
 	}
-	_, err = a.clients[id].sheets.Spreadsheets.Values.Append(sid, fmt.Sprintf(rowRangeFormat, 2), vr).ValueInputOption("RAW").InsertDataOption("INSERT_ROWS").Context(r.Context()).Do()
+	_, err = a.clients[id].sheets.Spreadsheets.Values.Append(sid, userRange, vr).ValueInputOption("RAW").InsertDataOption("INSERT_ROWS").Context(r.Context()).Do()
 	if err != nil {
 		log.Error(err)
 		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
@@ -388,7 +404,13 @@ func (a *API) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(errors.New("bsID is required"), http.StatusBadRequest).ServeHTTP(w, r)
 		return
 	}
-	file, err := a.clients[id].drive.Files.Create(&drive.File{Name: bsID}).Context(r.Context()).Fields(googleapi.Field("id")).Media(f).Do()
+	dir, err := ensureDirectory(r.Context(), a.clients[id])
+	if err != nil {
+		log.Errorf("failed to ensure photo directory exists: %v", err)
+		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
+		return
+	}
+	file, err := a.clients[id].drive.Files.Create(&drive.File{Name: bsID, Parents: []string{dir.Id}}).Context(r.Context()).Fields(googleapi.Field("id")).Media(f).Do()
 	if err != nil {
 		log.Errorf("failed to upload file: %v", err)
 		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
