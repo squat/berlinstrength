@@ -436,3 +436,42 @@ input {
     margin: auto;
     overflow: hidden;
 }
+
+.serverstatus {
+    color: var(--white);
+    display: block;
+    height: 0;
+    left: 0;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    width: 0;
+    z-index: 1;
+}
+
+.serverstatus--down {
+    background: rgba(0,0,0,.5);
+    height: 100%;
+    width: 100%;
+}
+
+.serverstatus--down::before {
+    background: var(--red);
+    border-radius: 50%;
+    bottom: 1em;
+    content: '';
+    display: block;
+    height: 1em;
+    left: 1em;
+    position: absolute;
+    width: 1em;
+}
+
+.serverstatus--down::after {
+    bottom: 1em;
+    content: 'disconnected';
+    display: block;
+    left: 2.5em;
+    line-height: 1;
+    position: absolute;
+}

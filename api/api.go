@@ -36,9 +36,9 @@ const (
 	directoryQuery  = "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
 	directoryName   = "user_photos"
 	userRange       = "A:K"
+	userUpdateRange = "A%d:K%d"
 	debtRange       = "DEBT!A:A"
 	visitRange      = "VISIT!A:B"
-	dateFormat      = "02/01/2006"
 	registerTimeout = 5 * time.Second
 )
 
@@ -89,6 +89,7 @@ func New(config *Config) *API {
 	r.Handle("/api/ws", a.requireLogin(a.websocketHandler(a.hub)))
 	r.Handle("/api/scan", a.requireLogin(http.HandlerFunc(a.scanHandler))).Methods("GET")
 	r.Handle("/api/register", a.requireLogin(http.HandlerFunc(a.registerHandler))).Methods("POST")
+	r.Handle("/api/register", a.requireLogin(http.HandlerFunc(a.updateHandler))).Methods("PUT")
 	r.Handle("/api/sheet/{id}", a.requireLogin(http.HandlerFunc(a.sheetHandler))).Methods("POST")
 	r.Handle("/api/upload", a.requireLogin(http.HandlerFunc(a.uploadHandler))).Methods("POST")
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(statikFS)))
@@ -148,7 +149,7 @@ func (a *API) broadcastUser(scanID string) {
 		go func(id, sid string) {
 			if c, ok := a.clients[id]; ok {
 				a.hub.Send([]byte(`{"scanning":true}`), id)
-				u, _, err := findUser(sid, scanID, rfidColumn, c)
+				u, _, _, err := findUser(sid, scanID, rfidColumn, c)
 				if err != nil {
 					a.hub.Send(errorToJSON(err), id)
 					log.Error(err)
@@ -185,11 +186,11 @@ func ensureDirectory(ctx context.Context, c client) (*drive.File, error) {
 }
 
 // findUser will look for a user in the specified sheet by either BSID or RFID, and return a pointer to the user, the row of the user in the spreadsheet, and any error.
-func findUser(sid, scanID string, scanIDColumn int, c client) (*user, int, error) {
+func findUser(sid, scanID string, scanIDColumn int, c client) (*user, int, []interface{}, error) {
 	var i int
 	vr, err := c.sheets.Spreadsheets.Values.Get(sid, userRange).MajorDimension("ROWS").Do()
 	if err != nil {
-		return nil, i, fmt.Errorf("failed to get spreadsheet data: %v", err)
+		return nil, i, nil, fmt.Errorf("failed to get spreadsheet data: %v", err)
 	}
 	var row []interface{}
 	for i = range vr.Values {
@@ -200,20 +201,22 @@ func findUser(sid, scanID string, scanIDColumn int, c client) (*user, int, error
 			}
 		}
 	}
+	// The Sheets API is not 0-index.
+	i++
 	if row == nil {
-		return nil, i, fmt.Errorf("user %q was not found", scanID)
+		return nil, i, nil, fmt.Errorf("user %q was not found", scanID)
 	}
 	u, err := rowToUser(row)
 	if err != nil {
-		return nil, i, fmt.Errorf("failed to parse user: %v", err)
+		return nil, i, nil, fmt.Errorf("failed to parse user: %v", err)
 	}
 	d, err := findDebt(sid, u.BSID, c)
 	if err != nil {
-		return nil, i, fmt.Errorf("failed to find  debt: %v", err)
+		return nil, i, nil, fmt.Errorf("failed to find  debt: %v", err)
 	}
 	u.Debt = d
 	log.Infof("found email %q for %q", u.Email, scanID)
-	return u, i, nil
+	return u, i, row, nil
 }
 
 func findDebt(sid, id string, c client) (bool, error) {
@@ -274,6 +277,54 @@ func (a *API) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
+// updateHandler allows the client to update a row in the sheet.
+func (a *API) updateHandler(w http.ResponseWriter, r *http.Request) {
+	sid, err := sheetFromSession(r)
+	if err != nil {
+		writeJSONError(err, http.StatusBadRequest).ServeHTTP(w, r)
+		return
+	}
+	id, err := idFromSession(r)
+	if err != nil {
+		writeJSONError(err, http.StatusBadRequest).ServeHTTP(w, r)
+		return
+	}
+	decoder := json.NewDecoder(r.Body)
+	var u user
+	err = decoder.Decode(&u)
+	if err != nil {
+		writeJSONError(err, http.StatusBadRequest).ServeHTTP(w, r)
+		return
+	}
+	defer r.Body.Close()
+	row := userToRow(&u)
+	_, n, existingRow, err := findUser(sid, u.BSID, bsIDColumn, a.clients[id])
+	if err != nil {
+		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
+		return
+	}
+	for i := range existingRow {
+		if i >= len(row) {
+			break
+		}
+		if v, ok := row[i].(string); ok && v != "" {
+			continue
+		}
+		row[i] = existingRow[i]
+	}
+	vr := &sheets.ValueRange{
+		MajorDimension: "ROWS",
+		Values:         [][]interface{}{row},
+	}
+	_, err = a.clients[id].sheets.Spreadsheets.Values.Update(sid, fmt.Sprintf(userUpdateRange, n, n), vr).ValueInputOption("RAW").Context(r.Context()).Do()
+	if err != nil {
+		log.Error(err)
+		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
+		return
+	}
+	writeJSON(u).ServeHTTP(w, r)
+}
+
 // registerHandler allows the client to add a new row to the sheet.
 func (a *API) registerHandler(w http.ResponseWriter, r *http.Request) {
 	sid, err := sheetFromSession(r)
@@ -327,7 +378,7 @@ func (a *API) scanHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // scanOnce retrieves exactly one value from the RFID scanner.
-// This method is not safe for concurrent use since it is modifying the `handleRFIG field on the API pointer.
+// This method is not safe for concurrent use since it is modifying the `handleRFID field on the API pointer.
 func (a *API) scanOnce() (string, error) {
 	if reflect.ValueOf(a.broadcastUser).Pointer() != reflect.ValueOf(a.handleRFID).Pointer() {
 		return "", errors.New("another client is currently reading a RFID value")
@@ -524,7 +575,7 @@ func (a *API) initialStateWithScan(next http.Handler) http.Handler {
 			return
 		}
 		if id != "" {
-			u, _, err := findUser(is.SheetID, id, bsIDColumn, a.clients[is.Email])
+			u, _, _, err := findUser(is.SheetID, id, bsIDColumn, a.clients[is.Email])
 			if err != nil {
 				is.ScanError = err.Error()
 			} else {

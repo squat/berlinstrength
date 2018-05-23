@@ -5,6 +5,7 @@ import Action, {
     ScanInFlightAction,
     SetManualScanAction,
     SetRegisterAction,
+    SetUploadAction,
 } from '../actions';
 
 export type Scan = {
@@ -37,6 +38,12 @@ export type ScanState = {
 export type Register = {
     done: boolean
     error: string
+    inFlight: boolean
+};
+
+export type Upload = {
+    error: string
+    fileID: string
     inFlight: boolean
 };
 
@@ -96,6 +103,20 @@ export const register = (state: Register = initialRegister, action: Action): Reg
                 done: (action as SetRegisterAction).done,
                 error: (action as SetRegisterAction).error,
                 inFlight: (action as SetRegisterAction).inFlight,
+            };
+    }
+    return state;
+};
+
+const initialUpload: Upload = {error: '', fileID: '', inFlight: false};
+
+export const upload = (state: Upload = initialUpload, action: Action): Upload => {
+    switch (action.type) {
+        case ActionType.SetUpload:
+            return {
+                error: (action as SetUploadAction).error,
+                fileID: (action as SetUploadAction).fileID,
+                inFlight: (action as SetUploadAction).inFlight,
             };
     }
     return state;

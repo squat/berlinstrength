@@ -26,6 +26,7 @@ const (
 	rfidColumn       = 9
 	minRowLength     = 6
 	defaultRowLength = 11
+	dateFormat       = "02/01/2006"
 )
 
 // Config represents the configuration for the Berlin Strength API.
@@ -116,7 +117,7 @@ func (u *user) UnmarshalJSON(b []byte) error {
 	var expiration time.Time
 	if _, ok := m["expiration"].(string); ok {
 		if m["expiration"].(string) != "" {
-			expiration, err = time.ParseInLocation(dateFormat, m["expiration"].(string), loc)
+			expiration, err = time.ParseInLocation(time.RFC3339, m["expiration"].(string), loc)
 			if err != nil {
 				return err
 			}

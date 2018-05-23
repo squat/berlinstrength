@@ -20,10 +20,12 @@ export enum ActionType {
     SetManualScan = 'SetManualScan',
     SetRegister = 'SetRegister',
     SetSheet = 'SetSheet',
+    SetUpload = 'SetUpload',
     ScanClient = 'ScanClient',
     ScanInFlight = 'ScanInFlight',
     ScanError = 'ScanError',
     SetUser = 'SetUser',
+    SetWebSocket = 'SetWebSocket',
 }
 
 export default interface Action {
@@ -67,12 +69,22 @@ export interface SetRegisterAction extends Action {
     inFlight: boolean;
 }
 
+export interface SetUploadAction extends Action {
+    error: string;
+    fileID: string;
+    inFlight: boolean;
+}
+
+export interface SetWebSocketAction extends Action {
+    state: boolean;
+}
+
 export const setUser = (email: string): SetUserAction => ({
     email,
     type: ActionType.SetUser,
 });
 
-export const websocket = (raw: string): AsyncAction => {
+export const webSocket = (raw: string): AsyncAction => {
     const json = JSON.parse(raw);
     return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction> => {
         if (json.hasOwnProperty('scanning')) {
@@ -96,6 +108,11 @@ export const websocket = (raw: string): AsyncAction => {
             .then((): RouterAction => dispatch(push('/scan/error')));
     };
 };
+
+export const setWebSocket = (state: boolean): SetWebSocketAction => ({
+    state,
+    type: ActionType.SetWebSocket,
+});
 
 export const scanError = (error: string): ScanErrorAction => {
     sound.play('err');
@@ -211,37 +228,54 @@ export const stopRegister = (): ThunkAction<Action, All, null> => {
     };
 };
 
+export const setUpload = (fileID: string, inFlight: boolean, error: string): SetUploadAction => ({
+    error,
+    fileID,
+    inFlight,
+    type: ActionType.SetUpload,
+});
+
 type UploadResponse = {
     fileID: string
 };
 
-export const requestRegister = (client: Client, photo: Blob|null): AsyncAction => {
+export const requestUpload = (client: Client, photo: Blob|null): AsyncAction<SetUploadAction> => {
+    return (dispatch: redux.Dispatch<All>): Promise<SetUploadAction> => {
+        if (!photo) {
+            return Promise.resolve(setUpload('', false, ''));
+        }
+        dispatch(setUpload('', true, ''));
+        const upload = new FormData();
+        upload.set('bsID', client.bsID);
+        upload.set('data', photo);
+        return fetch(document.location.origin + '/api/upload', {
+            body: upload,
+            credentials: 'include',
+            method: 'POST'})
+        .then((response: Response): Promise<UploadResponse> => {
+            if (!response.ok) {
+                throw Error(response.statusText);
+            }
+            return response.json();
+        })
+        .then((json: UploadResponse): SetUploadAction => dispatch(setUpload(json.fileID, false, '')))
+        .catch((error: Error): SetUploadAction => dispatch(setUpload('', false, error.message)));
+    };
+};
+
+export const requestRegister = (client: Client, photo: Blob|null, method: string = 'POST'): AsyncAction => {
     return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction> => {
         dispatch(setRegister(false, true, ''));
-        let p: Promise<UploadResponse>;
-        if (photo) {
-            const upload = new FormData();
-            upload.set('bsID', client.bsID);
-            upload.set('data', photo);
-            p = fetch(document.location.origin + '/api/upload', {
-                body: upload,
-                credentials: 'include',
-                method: 'POST'})
-            .then((response: Response): Promise<UploadResponse> => {
-                if (!response.ok) {
-                    throw Error(response.statusText);
+        return dispatch(requestUpload(client, photo)).then((upload: SetUploadAction): Promise<Response> => {
+                if (upload.error !== '' ) {
+                    throw Error(upload.error);
                 }
-                return response.json();
-            });
-        } else {
-            p = Promise.resolve({fileID: ''});
-        }
-        return p.then((json: UploadResponse): Promise<Response> => {
-                client.photo = json.fileID;
+                client.photo = upload.fileID;
                 return fetch(document.location.origin + '/api/register', {
                     body: JSON.stringify(client),
                     credentials: 'include',
-                    method: 'POST'});
+                    method,
+                });
             })
             .then((response: Response): Promise<string> => {
                 if (!response.ok) {

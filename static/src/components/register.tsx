@@ -26,6 +26,40 @@ type RegisterProps = {
     register: Register
 };
 
+const Check: JSX.Element = (
+    <span className="iconcontainer center--xylocal">
+        <i className="checkmark"/>
+    </span>
+);
+
+type ErrorSuccessProps = {
+    children?: React.ReactNode
+    done: boolean
+    inFlight: boolean
+    error: string
+    close(): any
+};
+
+export const ErrorSuccess: React.SFC<ErrorSuccessProps> = ({children, inFlight, done, error, close}): JSX.Element => (
+    <div>
+        <div className={'scan transition' + (inFlight ? ' halfblur' : '')}>
+            <a className="dismiss" onClick={close}/>
+            <TransitionGroup>
+                <Fade key={done ? 'a' : 'b'}>
+                    {done ? (error ? <ErrorScan error={error} /> : Check) : children}
+                </Fade>
+            </TransitionGroup>
+        </div>
+        <TransitionGroup>
+            <Fade key={inFlight ? 'a' : 'b'}>
+                <div className="center--xy">
+                    {inFlight && <Spinner />}
+                </div>
+            </Fade>
+        </TransitionGroup>
+    </div>
+);
+
 const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: RegisterProps & Dispatch) => {
     if (location.pathname === '/register' && !m.id) {
         return <Redirect to="/scan" />;
@@ -52,7 +86,7 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
                     break;
                 case 'expiration':
                     const d = new Date((f.elements.item(i) as HTMLInputElement).value);
-                    c.expiration = d.toLocaleDateString('en-GB', {month: '2-digit', day: '2-digit', year: 'numeric'});
+                    c.expiration = d.toISOString();
                     break;
             }
         }
@@ -60,11 +94,6 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
         c.id = m.id;
         dispatch(requestRegister(c, photo));
     };
-    const Check: JSX.Element = (
-        <span className="iconcontainer center--xylocal">
-            <i className="checkmark"/>
-        </span>
-    );
     const Form: JSX.Element = (
         <form onSubmit={submit}>
             <ul className="fields">
@@ -119,27 +148,13 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
                 </li>
             </ul>
             <TakePhoto cb={cb} />
-            <input type="submit" style={{display: 'block', margin: 'auto'}} value="Continue&rarr;" />
+            <input type="submit" style={{display: 'block', margin: 'auto'}} value="register" />
         </form>
     );
     return (
-        <div>
-            <div className={'scan transition' + (r.inFlight ? ' halfblur' : '')}>
-                <a className="dismiss" onClick={close}/>
-                <TransitionGroup>
-                    <Fade key={r.done ? 'a' : 'b'}>
-                        {r.done ? (r.error ? <ErrorScan error={r.error} /> : Check) : Form}
-                    </Fade>
-                </TransitionGroup>
-            </div>
-            <TransitionGroup>
-                <Fade key={r.inFlight ? 'a' : 'b'}>
-                    <div className="center--xy">
-                        {r.inFlight && <Spinner />}
-                    </div>
-                </Fade>
-            </TransitionGroup>
-        </div>
+        <ErrorSuccess error={r.error} inFlight={r.inFlight} done={r.done} close={close}>
+            {Form}
+        </ErrorSuccess>
     );
 };
 
@@ -174,8 +189,8 @@ export class TakePhoto extends React.Component<TakePhotoProps, {src: string|null
         const {size} = this.props;
         const {src} = this.state;
         const buttons: JSX.Element = src ?
-            <button onClick={this.clear}>Retake</button>
-            : <button onClick={this.capture}>Take Photo</button>;
+            <button onClick={this.clear}>retake</button>
+            : <button onClick={this.capture}>take photo</button>;
         return (
             <div style={{textAlign: 'center'}}>
                 <div className="webcam" style={{height: size, width: size}}>

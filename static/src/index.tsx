@@ -7,9 +7,9 @@ import { TransitionGroup } from 'react-transition-group';
 import { applyMiddleware, createStore, Store } from 'redux';
 import thunkMiddleware from 'redux-thunk';
 
-import { addSheets, scanClient, scanError, setSheet, setUser, websocket } from './actions';
+import { addSheets, scanClient, scanError, setSheet, setUser, setWebSocket, webSocket } from './actions';
 import { Fade, LocationFadeRoutes } from './components/fade';
-import { Header } from './components/header';
+import { Header, ServerStatus } from './components/header';
 import { Instructions, ManualScanInstructions } from './components/instructions';
 import { AuthenticatedRoute } from './components/login';
 import {  RegisterForm } from './components/register';
@@ -55,8 +55,14 @@ if (window.hasOwnProperty('state')) {
 if (isAuthenticated(store.getState())) {
     const ws: WebSocket = new WebSocket(`ws${document.location.protocol.startsWith('https') ? 's' : ''}://`
         + document.location.host + '/api/ws');
-    ws.onmessage = (e) => {
-        store.dispatch(websocket(e.data));
+    ws.onmessage = (e): void => {
+        store.dispatch(webSocket(e.data));
+    };
+    ws.onopen = (): void => {
+        store.dispatch(setWebSocket(true));
+    };
+    ws.onerror = ws.onclose = (): void => {
+        store.dispatch(setWebSocket(false));
     };
 }
 
@@ -66,6 +72,7 @@ ReactDom.render(
             <Provider store={store}>
                 <div>
                     <Header />
+                    {isAuthenticated(store.getState()) && <ServerStatus />}
                     <ConnectedRouter history={history}>
                         <LocationFadeRoutes>
                             <AuthenticatedRoute redirect={false} exact={true} path="/" component={Instructions}/>
