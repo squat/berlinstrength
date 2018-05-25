@@ -185,13 +185,9 @@ func ensureDirectory(ctx context.Context, c client) (*drive.File, error) {
 	return c.drive.Files.Create(&drive.File{Name: directoryName, MimeType: "application/vnd.google-apps.folder"}).Context(ctx).Fields(googleapi.Field("id")).Do()
 }
 
-// findUser will look for a user in the specified sheet by either BSID or RFID, and return a pointer to the user, the row of the user in the spreadsheet, and any error.
-func findUser(sid, scanID string, scanIDColumn int, c client) (*user, int, []interface{}, error) {
+// userRangeToUser converts a *sheets.ValueRange representing a user to a user struct.
+func userRangeToUser(vr *sheets.ValueRange, scanID string, scanIDColumn int) (*user, int, []interface{}, error) {
 	var i int
-	vr, err := c.sheets.Spreadsheets.Values.Get(sid, userRange).MajorDimension("ROWS").Do()
-	if err != nil {
-		return nil, i, nil, fmt.Errorf("failed to get spreadsheet data: %v", err)
-	}
 	var row []interface{}
 	for i = range vr.Values {
 		if len(vr.Values[i]) > scanIDColumn {
@@ -210,28 +206,50 @@ func findUser(sid, scanID string, scanIDColumn int, c client) (*user, int, []int
 	if err != nil {
 		return nil, i, nil, fmt.Errorf("failed to parse user: %v", err)
 	}
-	d, err := findDebt(sid, u.BSID, c)
-	if err != nil {
-		return nil, i, nil, fmt.Errorf("failed to find  debt: %v", err)
-	}
-	u.Debt = d
-	log.Infof("found email %q for %q", u.Email, scanID)
 	return u, i, row, nil
 }
 
-func findDebt(sid, id string, c client) (bool, error) {
-	vr, err := c.sheets.Spreadsheets.Values.Get(sid, debtRange).MajorDimension("ROWS").Do()
-	if err != nil {
-		return false, fmt.Errorf("failed to get spreadsheet debt data: %v", err)
-	}
+// debtRangeToDebt converts a *sheets.ValueRange representing debts to a boolean identifying if
+// the given user has debt.
+func debtRangeToDebt(vr *sheets.ValueRange, id string) bool {
 	for i := range vr.Values {
 		if len(vr.Values[i]) == 1 {
 			if bsID, ok := vr.Values[i][0].(string); ok && strings.ToLower(bsID) == strings.ToLower(id) {
-				return true, nil
+				return true
 			}
 		}
 	}
-	return false, nil
+	return false
+}
+
+// findUser will look for a user in the specified sheet by either BSID or RFID, and return a pointer to the user, the row of the user in the spreadsheet, and any error.
+func findUser(sid, scanID string, scanIDColumn int, c client) (*user, int, []interface{}, error) {
+	var dvr, uvr *sheets.ValueRange
+	var err error
+	if scanIDColumn == bsIDColumn {
+		res, err := c.sheets.Spreadsheets.Values.BatchGet(sid).Ranges(userRange, debtRange).MajorDimension("ROWS").Do()
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("failed to batch get spreadsheet data: %v", err)
+		}
+		uvr = res.ValueRanges[0]
+		dvr = res.ValueRanges[1]
+	} else {
+		uvr, err = c.sheets.Spreadsheets.Values.Get(sid, userRange).MajorDimension("ROWS").Do()
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("failed to get spreadsheet data: %v", err)
+		}
+		dvr, err = c.sheets.Spreadsheets.Values.Get(sid, debtRange).MajorDimension("ROWS").Do()
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("failed to get spreadsheet debt data: %v", err)
+		}
+	}
+	u, i, row, err := userRangeToUser(uvr, scanID, scanIDColumn)
+	if err != nil {
+		return nil, i, nil, err
+	}
+	u.Debt = debtRangeToDebt(dvr, u.BSID)
+	log.Infof("found email %q for %q", u.Email, scanID)
+	return u, i, row, nil
 }
 
 func recordVisit(sid, id string, c client) error {
