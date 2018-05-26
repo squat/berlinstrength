@@ -7,7 +7,7 @@ import * as redux from 'redux';
 
 import { requestRegister, stopRegister } from '../actions';
 import { All } from '../reducers';
-import { Client, ManualScan, Register } from '../reducers/scan';
+import { Client, ManualScan, Register, Scan } from '../reducers/scan';
 import { Fade } from './fade';
 import { Spinner } from './loader';
 import { ErrorScan } from './scan';
@@ -21,6 +21,8 @@ const mapDispatchToProps = (dispatch: redux.Dispatch<All>) => ({
 });
 
 type RegisterProps = {
+    client?: Client
+    edit: boolean
     location: Location
     manualScan: ManualScan
     register: Register
@@ -60,7 +62,8 @@ export const ErrorSuccess: React.SFC<ErrorSuccessProps> = ({children, inFlight, 
     </div>
 );
 
-const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: RegisterProps & Dispatch) => {
+const register: React.SFC = ({client, edit, manualScan: m, dispatch, location, register: r}:
+    RegisterProps & Dispatch) => {
     if (location.pathname === '/register' && !m.id) {
         return <Redirect to="/scan" />;
     }
@@ -92,7 +95,7 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
         }
         c.debt = false;
         c.id = m.id;
-        dispatch(requestRegister(c, photo));
+        dispatch(requestRegister(c, photo, edit ? 'PUT' : 'POST'));
     };
     const Form: JSX.Element = (
         <form onSubmit={submit}>
@@ -103,6 +106,7 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
                         <input
                             autoFocus={true}
                             className="field-value"
+                            defaultValue={client ? client.name : ''}
                             name="name"
                             placeholder="Berlin Strength"
                             required={true}
@@ -115,6 +119,7 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
                         <span className="field-key field-key--form">Email:</span>
                         <input
                             className="field-value"
+                            defaultValue={client ? client.email : ''}
                             name="email"
                             placeholder="berlin@strength.de"
                             required={true}
@@ -127,6 +132,7 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
                         <span className="field-key field-key--form">ID:</span>
                         <input
                             className="field-value"
+                            defaultValue={client ? client.bsID : ''}
                             name="id"
                             placeholder="100"
                             required={true}
@@ -139,6 +145,7 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
                         <span className="field-key field-key--form">Expiration:</span>
                         <input
                             className="field-value"
+                            defaultValue={client ? client.expiration.split('T')[0] : ''}
                             name="expiration"
                             placeholder="01/01/3000"
                             required={true}
@@ -148,7 +155,7 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
                 </li>
             </ul>
             <TakePhoto cb={cb} />
-            <input type="submit" style={{display: 'block', margin: 'auto'}} value="register" />
+            <input type="submit" style={{display: 'block', margin: 'auto'}} value={edit ? 'update' : 'register'} />
         </form>
     );
     return (
@@ -158,11 +165,17 @@ const register: React.SFC = ({manualScan: m, dispatch, location, register: r}: R
     );
 };
 
-const mapStateToProps = (state: All, props: any): RegisterProps => ({
-    location: state.router.location || props.location,
-    manualScan: state.manualScan,
-    register: state.register,
-});
+const mapStateToProps = (state: All, props: any): RegisterProps => {
+    const c: Client|undefined = state.scan.scans.has(props.match.params.bsID) ?
+        (state.scan.scans.get(props.match.params.bsID) as Scan).client : undefined;
+    return {
+        client: c,
+        edit: c ? true : false,
+        location: state.router.location || props.location,
+        manualScan: state.manualScan,
+        register: state.register,
+    };
+};
 
 export const RegisterForm = connect(mapStateToProps, mapDispatchToProps)(register);
 

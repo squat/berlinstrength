@@ -70,19 +70,20 @@ ReactDom.render(
     <TransitionGroup appear={true}>
         <Fade>
             <Provider store={store}>
-                <div>
-                    <Header />
-                    {isAuthenticated(store.getState()) && <ServerStatus />}
-                    <ConnectedRouter history={history}>
+                <ConnectedRouter history={history}>
+                    <div>
+                        <Header />
+                        {isAuthenticated(store.getState()) && <ServerStatus />}
                         <LocationFadeRoutes>
                             <AuthenticatedRoute redirect={false} exact={true} path="/" component={Instructions}/>
                             <AuthenticatedRoute exact={true} path="/scan" component={ManualScanInstructions}/>
+                            <AuthenticatedRoute path="/edit/:bsID" component={RegisterForm}/>
                             <AuthenticatedRoute path="/register" component={RegisterForm}/>
                             <AuthenticatedRoute path="/sheets" component={SheetView}/>
                             <AuthenticatedRoute path="/scan/:bsID" component={ScanView}/>
                         </LocationFadeRoutes>
-                    </ConnectedRouter>
-                </div>
+                    </div>
+                </ConnectedRouter>
             </Provider>
         </Fade>
     </TransitionGroup>

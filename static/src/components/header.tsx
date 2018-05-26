@@ -1,12 +1,13 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
+import { Link } from 'react-router-dom';
 
 import { All } from '../reducers';
 import { Login } from './login';
 
 export const Header: React.SFC = () => (
     <header>
-        <h1>Berlin Strength</h1>
+        <h1><Link to="/">Berlin Strength</Link></h1>
         <Login />
     </header>
 );

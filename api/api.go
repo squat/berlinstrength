@@ -78,6 +78,7 @@ func New(config *Config) *API {
 		stateConfig = gologin.DebugOnlyCookieConfig
 	}
 	r.Handle("/", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
+	r.Handle("/edit/{id}", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithScan(http.HandlerFunc(homeHandler)))))
 	r.Handle("/register", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
 	r.Handle("/sheets", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
 	r.Handle("/scan", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
