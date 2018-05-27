@@ -71,6 +71,10 @@ const SuccessScan: React.SFC<SuccessProps> = ({scan: s}: SuccessProps): JSX.Elem
                         {expired(s) ? <i className="ex"/> : <i className="checkmark"/>}
                     </span>
                 </li>
+                <li>
+                    <span className="field-key">RFID:</span>
+                    <span className="field-value">{s.client.id}</span>
+                </li>
             </ul>
             <Link to={`/edit/${s.client.bsID}`}>edit</Link>
         </div>

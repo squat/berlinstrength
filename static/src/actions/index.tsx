@@ -144,12 +144,9 @@ type ScanResponse = {
     sheetID: string
 };
 
-export const manualScan = (): ThunkAction<Promise<Action|RouterAction|null>, All, null> => {
-    return (dispatch: redux.Dispatch<All>, getState: () => All): Promise<Action|RouterAction|null> => {
-        const {router: r, manualScan: m} = getState();
-        if ((r.location && r.location.pathname !== '/scan') || m.inFlight) {
-            return Promise.resolve(null);
-        }
+export const manualScan = (successRedirect?: string,
+                           errorRedirect?: string): ThunkAction<Promise<Action|RouterAction|null>, All, null> => {
+    return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction|null> => {
         dispatch(setManualScan('', true, ''));
         return fetch(document.location.origin + '/api/scan', {credentials: 'include'})
             .then((response: Response): Promise<ScanResponse> => {
@@ -159,12 +156,15 @@ export const manualScan = (): ThunkAction<Promise<Action|RouterAction|null>, All
                 return response.json();
             })
             .then((json: ScanResponse): Action => {
-                dispatch(setManualScan(json.scanID, true, ''));
-                dispatch(push('/register'));
+                if (successRedirect) {
+                    dispatch(push(successRedirect));
+                }
                 return dispatch(setManualScan(json.scanID, false, ''));
             })
             .catch((error: Error): Action => {
-                dispatch(push('/'));
+                if (errorRedirect) {
+                    dispatch(push(errorRedirect));
+                }
                 return dispatch(setManualScan('', false, error.message));
             });
     };

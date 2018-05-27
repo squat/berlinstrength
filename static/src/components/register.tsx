@@ -1,15 +1,14 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { Redirect } from 'react-router';
 import { TransitionGroup } from 'react-transition-group';
 import * as Webcam from 'react-webcam';
 import * as redux from 'redux';
 
-import { requestRegister, stopRegister } from '../actions';
+import { manualScan, requestRegister, stopRegister } from '../actions';
 import { All } from '../reducers';
 import { Client, ManualScan, Register, Scan } from '../reducers/scan';
 import { Fade } from './fade';
-import { Spinner } from './loader';
+import { Loadable } from './loader';
 import { ErrorScan } from './scan';
 
 type Dispatch = {
@@ -23,7 +22,6 @@ const mapDispatchToProps = (dispatch: redux.Dispatch<All>) => ({
 type RegisterProps = {
     client?: Client
     edit: boolean
-    location: Location
     manualScan: ManualScan
     register: Register
 };
@@ -43,8 +41,8 @@ type ErrorSuccessProps = {
 };
 
 export const ErrorSuccess: React.SFC<ErrorSuccessProps> = ({children, inFlight, done, error, close}): JSX.Element => (
-    <div>
-        <div className={'scan transition' + (inFlight ? ' halfblur' : '')}>
+    <Loadable inFlight={inFlight} className="scan transition" center={true}>
+        <div>
             <a className="dismiss" onClick={close}/>
             <TransitionGroup>
                 <Fade key={done ? 'a' : 'b'}>
@@ -52,21 +50,12 @@ export const ErrorSuccess: React.SFC<ErrorSuccessProps> = ({children, inFlight, 
                 </Fade>
             </TransitionGroup>
         </div>
-        <TransitionGroup>
-            <Fade key={inFlight ? 'a' : 'b'}>
-                <div className="center--xy">
-                    {inFlight && <Spinner />}
-                </div>
-            </Fade>
-        </TransitionGroup>
-    </div>
+    </Loadable>
 );
 
-const register: React.SFC = ({client, edit, manualScan: m, dispatch, location, register: r}:
+const register: React.SFC = ({client, edit, manualScan: m, dispatch, register: r}:
     RegisterProps & Dispatch) => {
-    if (location.pathname === '/register' && !m.id) {
-        return <Redirect to="/scan" />;
-    }
+    const rfid: string = m.id ? m.id : client ? client.id : '';
     let photo: Blob|null = null;
     const cb = (p: Blob): void => {
         photo = p;
@@ -94,8 +83,12 @@ const register: React.SFC = ({client, edit, manualScan: m, dispatch, location, r
             }
         }
         c.debt = false;
-        c.id = m.id;
+        c.id = rfid;
         dispatch(requestRegister(c, photo, edit ? 'PUT' : 'POST'));
+    };
+    const rescan = (e: React.MouseEvent<HTMLElement>) => {
+        e.preventDefault();
+        dispatch(manualScan());
     };
     const Form: JSX.Element = (
         <form onSubmit={submit}>
@@ -137,6 +130,7 @@ const register: React.SFC = ({client, edit, manualScan: m, dispatch, location, r
                             placeholder="100"
                             required={true}
                             type="text"
+                            disabled={edit}
                         />
                     </label>
                 </li>
@@ -152,6 +146,19 @@ const register: React.SFC = ({client, edit, manualScan: m, dispatch, location, r
                             type="date"
                         />
                     </label>
+                </li>
+                <li>
+                    <span className="field-key field-key--form">RFID:</span>
+                    <Loadable
+                     center={true}
+                     inFlight={m.inFlight}
+                     size={30}
+                     style={{display: 'inline-block', position: 'relative'}}
+                    >
+                        <span className="field-value">
+                            {rfid}&nbsp;<a onClick={rescan}>{rfid ? 'change' : 'scan'}</a>
+                        </span>
+                    </Loadable>
                 </li>
             </ul>
             <TakePhoto cb={cb} />
@@ -171,7 +178,6 @@ const mapStateToProps = (state: All, props: any): RegisterProps => {
     return {
         client: c,
         edit: c ? true : false,
-        location: state.router.location || props.location,
         manualScan: state.manualScan,
         register: state.register,
     };

@@ -1,35 +1,27 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
 import { push } from 'react-router-redux';
-import { TransitionGroup } from 'react-transition-group';
 import * as redux from 'redux';
 
 import { manualScan } from '../actions';
 import { All } from '../reducers';
-import { Fade } from './fade';
-import { Spinner } from './loader';
+import { Loadable, Spinner } from './loader';
 
 type Dispatch = {
     dispatch: redux.Dispatch<All>
 };
 
 const instructions: React.SFC = (props: {inFlight: boolean} & Dispatch) => {
-    const click = () => props.dispatch(push('/scan'));
+    const click = () => {
+        props.dispatch(manualScan('/register', '/'));
+        props.dispatch(push('/scan'));
+    };
     return (
-        <div>
-            <div className={'container center--xy transition' + (props.inFlight ? ' halfblur' : '')}>
-                <h2>
-                    Scan an ID to get started or <a onClick={click}>add a new client</a>
-                </h2>
-            </div>
-            <TransitionGroup>
-                <Fade key={props.inFlight ? 'a' : 'b'}>
-                    <div className="center--xy">
-                        {props.inFlight && <Spinner />}
-                    </div>
-                </Fade>
-            </TransitionGroup>
-        </div>
+        <Loadable center={true} className="container center--xy" inFlight={props.inFlight}>
+            <h2>
+                Scan an ID to get started or <a onClick={click}>add a new client</a>
+            </h2>
+        </Loadable>
     );
 };
 
@@ -43,8 +35,15 @@ const mapDispatchToProps = (dispatch: redux.Dispatch<All>) => ({
 
 export const Instructions = connect(mapInFlightToProps, mapDispatchToProps)(instructions);
 
-const manualScanInstructions: React.SFC<Dispatch> = ({dispatch}: Dispatch) => {
-    dispatch(manualScan());
+type manualScanInstructionsProps = {
+    inFlight: boolean
+    location: Location
+};
+
+const manualScanInstructions: React.SFC = (props: manualScanInstructionsProps & Dispatch): JSX.Element => {
+    if (location.pathname === '/scan' && !props.inFlight) {
+        props.dispatch(manualScan('/register', '/'));
+    }
     return (
             <div className="container center--xy">
                 <h2>
@@ -57,4 +56,9 @@ const manualScanInstructions: React.SFC<Dispatch> = ({dispatch}: Dispatch) => {
         );
 };
 
-export const ManualScanInstructions = connect(null, mapDispatchToProps)(manualScanInstructions);
+const mapStateToProps = (state: All, props: any): manualScanInstructionsProps => ({
+    inFlight: state.manualScan.inFlight,
+    location: state.router.location || props.location,
+});
+
+export const ManualScanInstructions = connect(mapStateToProps, mapDispatchToProps)(manualScanInstructions);
