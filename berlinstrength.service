@@ -1,0 +1,19 @@
+[Unit]
+Description=Berlin Strength RFID scanner
+After=docker.service
+Requires=docker.service
+Wants=traefik.service
+
+[Service]
+EnvironmentFile=/opt/berlinstrength/env
+ExecStartPre=-/usr/bin/docker kill berlinstrength
+ExecStartPre=-/usr/bin/docker rm berlinstrength
+ExecStartPre=/usr/bin/docker pull squat/berlinstrength-arm
+ExecStart=/usr/bin/docker run --name=berlinstrength -it -l "traefik.enable=true" -l "traefik.basic.frontend.rule=Host:berlinstrength.pullu.ps" -l "traefik.basic.port=8080" -l "traefik.basic.protocol=http" --user=65534 squat/berlinstrength-arm --emails=lserven@gmail.com,berlinstrength@gmail.com --client-id=${OAUTH_CLIENT_ID} --client-secret=${OAUTH_CLIENT_SECRET} --url=https://berlinstrength.pullu.ps --port=8080
+ExecStop=/usr/bin/docker stop berlinstrength
+Restart=always
+StandardInput=tty-force
+StandardOutput=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
