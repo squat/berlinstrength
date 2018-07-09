@@ -1,12 +1,14 @@
 import { routerReducer, RouterState } from 'react-router-redux';
 import { combineReducers } from 'redux';
 
-import { ManualScan, manualScan, Register, register, scan, ScanState, Upload, upload} from './scan';
+import { clients, ClientState, Register, register, Upload, upload } from './client';
+import { ManualScan, manualScan, scan, ScanState } from './scan';
 import { Server, server } from './server';
 import { SetSheet, setSheet, Sheet, sheets } from './sheets';
 import { User, user } from './user';
 
 export type All = {
+    clients: ClientState
     manualScan: ManualScan
     register: Register
     router: RouterState
@@ -19,6 +21,7 @@ export type All = {
 };
 
 export const reducers = combineReducers<All>({
+    clients,
     manualScan,
     register,
     router: routerReducer,

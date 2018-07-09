@@ -78,19 +78,19 @@ func New(config *Config) *API {
 		stateConfig = gologin.DebugOnlyCookieConfig
 	}
 	r.Handle("/", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
-	r.Handle("/edit/{id}", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithScan(http.HandlerFunc(homeHandler)))))
+	r.Handle("/edit/{id}", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithClient(http.HandlerFunc(homeHandler)))))
 	r.Handle("/register", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
 	r.Handle("/sheets", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
-	r.Handle("/scan", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
-	r.Handle("/scan/{id}", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithScan(http.HandlerFunc(homeHandler)))))
+	r.Handle("/scan/{id}", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithClient(http.HandlerFunc(homeHandler)))))
 
 	r.Handle("/login", google.StateHandler(stateConfig, loginHandler(oauth2Config)))
 	r.HandleFunc("/logout", a.logoutHandler)
 	r.Handle("/callback", google.StateHandler(stateConfig, google.CallbackHandler(oauth2Config, a.issueSession(oauth2Config), nil)))
 	r.Handle("/api/ws", a.requireLogin(a.websocketHandler(a.hub)))
 	r.Handle("/api/scan", a.requireLogin(http.HandlerFunc(a.scanHandler))).Methods("GET")
-	r.Handle("/api/register", a.requireLogin(http.HandlerFunc(a.registerHandler))).Methods("POST")
-	r.Handle("/api/register", a.requireLogin(http.HandlerFunc(a.updateHandler))).Methods("PUT")
+	r.Handle("/api/user", a.requireLogin(http.HandlerFunc(a.createUserHandler))).Methods("POST")
+	r.Handle("/api/user/{id}", a.requireLogin(http.HandlerFunc(a.getUserHandler))).Methods("GET")
+	r.Handle("/api/user/{id}", a.requireLogin(http.HandlerFunc(a.updateUserHandler))).Methods("PUT")
 	r.Handle("/api/sheet/{id}", a.requireLogin(http.HandlerFunc(a.sheetHandler))).Methods("POST")
 	r.Handle("/api/upload", a.requireLogin(http.HandlerFunc(a.uploadHandler))).Methods("POST")
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(statikFS)))
@@ -201,7 +201,7 @@ func userRangeToUser(vr *sheets.ValueRange, scanID string, scanIDColumn int) (*u
 	// The Sheets API is not 0-index.
 	i++
 	if row == nil {
-		return nil, i, nil, fmt.Errorf("user %q was not found", scanID)
+		return nil, i, nil, &notFoundError{"user", scanID}
 	}
 	u, err := rowToUser(row)
 	if err != nil {
@@ -296,8 +296,34 @@ func (a *API) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-// updateHandler allows the client to update a row in the sheet.
-func (a *API) updateHandler(w http.ResponseWriter, r *http.Request) {
+// getUserHandler allows the client to fetch a user from the sheet.
+func (a *API) getUserHandler(w http.ResponseWriter, r *http.Request) {
+	bsID := mux.Vars(r)["id"]
+	sid, err := sheetFromSession(r)
+	if err != nil {
+		writeJSONError(err, http.StatusBadRequest).ServeHTTP(w, r)
+		return
+	}
+	id, err := idFromSession(r)
+	if err != nil {
+		writeJSONError(err, http.StatusBadRequest).ServeHTTP(w, r)
+		return
+	}
+	u, _, _, err := findUser(sid, bsID, bsIDColumn, a.clients[id])
+	if err != nil {
+		if _, ok := err.(*notFoundError); ok {
+			writeJSONError(err, http.StatusNotFound).ServeHTTP(w, r)
+			return
+		}
+		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
+		return
+	}
+	writeJSON(u).ServeHTTP(w, r)
+}
+
+// updateUserHandler allows the client to update a user in the sheet.
+func (a *API) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+	bsID := mux.Vars(r)["id"]
 	sid, err := sheetFromSession(r)
 	if err != nil {
 		writeJSONError(err, http.StatusBadRequest).ServeHTTP(w, r)
@@ -317,8 +343,12 @@ func (a *API) updateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	row := userToRow(&u)
-	_, n, existingRow, err := findUser(sid, u.BSID, bsIDColumn, a.clients[id])
+	_, n, existingRow, err := findUser(sid, bsID, bsIDColumn, a.clients[id])
 	if err != nil {
+		if _, ok := err.(*notFoundError); ok {
+			writeJSONError(err, http.StatusNotFound).ServeHTTP(w, r)
+			return
+		}
 		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
 		return
 	}
@@ -344,8 +374,8 @@ func (a *API) updateHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(u).ServeHTTP(w, r)
 }
 
-// registerHandler allows the client to add a new row to the sheet.
-func (a *API) registerHandler(w http.ResponseWriter, r *http.Request) {
+// createUserHandler allows the client to add a new row to the sheet.
+func (a *API) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	sid, err := sheetFromSession(r)
 	if err != nil {
 		writeJSONError(err, http.StatusBadRequest).ServeHTTP(w, r)
@@ -578,9 +608,9 @@ func (a *API) initialStateWithSheets(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-// initialStateWithScan adds information about a scan to the request context
+// initialStateWithClient adds information about a client to the request context
 // and calls the next handler.
-func (a *API) initialStateWithScan(next http.Handler) http.Handler {
+func (a *API) initialStateWithClient(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		is, err := initialStateFromContext(r.Context())
 		if err != nil {
@@ -596,12 +626,12 @@ func (a *API) initialStateWithScan(next http.Handler) http.Handler {
 		if id != "" {
 			u, _, _, err := findUser(is.SheetID, id, bsIDColumn, a.clients[is.Email])
 			if err != nil {
-				is.ScanError = err.Error()
+				is.ClientError = err.Error()
 			} else {
-				is.Scan = *u
+				is.Client = *u
 			}
 		} else {
-			is.ScanError = fmt.Sprintf("%q is not a valid ID", id)
+			is.ClientError = fmt.Sprintf("%q is not a valid ID", id)
 		}
 		ctx := withInitialState(r.Context(), is)
 		next.ServeHTTP(w, r.WithContext(ctx))

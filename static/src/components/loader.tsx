@@ -11,16 +11,15 @@ export const Spinner: React.SFC<{size?: number}> = ({size = 60}) => (
 
 type LoadableProps = {
     center?: boolean
-    children?: React.ReactNode
     inFlight: boolean
     size?: number
 };
 
 export const Loadable: React.SFC<LoadableProps & any> =
     ({center = false, children, inFlight, size, ...props}: LoadableProps & any): JSX.Element => (
-    <span {...props}>
+    <div style={{display: 'inline-block'}} {...props}>
         <div className={`transition${inFlight ? ' halfblur' : ''}`}>
-            {React.isValidElement(children) ? children : <span/>}
+            {children}
         </div>
         <TransitionGroup>
             <Fade key={inFlight ? 'a' : 'b'}>
@@ -32,5 +31,5 @@ export const Loadable: React.SFC<LoadableProps & any> =
                 </span>
             </Fade>
         </TransitionGroup>
-    </span>
+    </div>
 );

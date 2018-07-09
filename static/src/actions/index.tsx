@@ -4,7 +4,7 @@ import * as redux from 'redux';
 import { ThunkAction } from 'redux-thunk';
 
 import { All } from '../reducers';
-import { Client, expired } from '../reducers/scan';
+import { Client, expired } from '../reducers/client';
 import { Sheet } from '../reducers/sheets';
 
 const sound: Howl = new Howl({
@@ -17,6 +17,7 @@ const sound: Howl = new Howl({
 
 export enum ActionType {
     AddSheets = 'AddSheets',
+    SetClient = 'SetClient',
     SetManualScan = 'SetManualScan',
     SetRegister = 'SetRegister',
     SetSheet = 'SetSheet',
@@ -24,6 +25,8 @@ export enum ActionType {
     ScanClient = 'ScanClient',
     ScanInFlight = 'ScanInFlight',
     ScanError = 'ScanError',
+    ScanSearch = 'ScanSearch',
+    ScanSeen = 'ScanSeen',
     SetUser = 'SetUser',
     SetWebSocket = 'SetWebSocket',
 }
@@ -46,7 +49,7 @@ export interface SetSheetAction extends Action {
 }
 
 export interface ScanClientAction extends Action {
-    client: Client;
+    id: string;
 }
 
 export interface ScanErrorAction extends Action {
@@ -54,6 +57,22 @@ export interface ScanErrorAction extends Action {
 }
 
 export interface ScanInFlightAction extends Action {
+    inFlight: boolean;
+}
+
+export interface ScanSearchAction extends Action {
+    search: string;
+}
+
+export interface ScanSeenAction extends Action {
+    seen: boolean;
+    uuid: string;
+}
+
+export interface SetClientAction extends Action {
+    client: Client;
+    error: string;
+    id: string;
     inFlight: boolean;
 }
 
@@ -91,21 +110,22 @@ export const webSocket = (raw: string): AsyncAction => {
             return Promise.resolve(dispatch(scanInFlight(json.scanning as boolean)));
         }
         if (json.hasOwnProperty('bsID')) {
-            return Promise.resolve(dispatch(scanClient({
-                    bsID: json.bsID,
-                    debt: json.debt,
-                    email: json.email,
-                    expiration: json.expiration,
-                    id: json.id,
-                    name: json.name,
-                    photo: json.photo,
-                })))
-                .then((): RouterAction => dispatch(push('/scan/' + json.bsID)))
-           .then((): Action => dispatch(scanInFlight(false)));
+            const c: Client = {
+                bsID: json.bsID,
+                debt: json.debt,
+                email: json.email,
+                expiration: json.expiration,
+                id: json.id,
+                name: json.name,
+                photo: json.photo,
+            };
+            dispatch(setClient(json.bsID, false, c, ''));
+            return Promise.resolve(dispatch(scanClient(c)))
+                .then((): Action => dispatch(scanInFlight(false)));
         }
+        dispatch(setClient('error', false, {} as Client, json.error));
         return Promise.resolve(dispatch(scanError(json.error)))
-            .then((): Action => dispatch(scanInFlight(false)))
-            .then((): RouterAction => dispatch(push('/scan/error')));
+            .then((): Action => dispatch(scanInFlight(false)));
     };
 };
 
@@ -123,13 +143,13 @@ export const scanError = (error: string): ScanErrorAction => {
 };
 
 export const scanClient = (client: Client): ScanClientAction => {
-    if (client.debt || expired({client, error: '', time: Date()})) {
+    if (client.debt || expired(client)) {
         sound.play('err');
     } else {
         sound.play('ok');
     }
     return {
-        client,
+        id: client.bsID,
         type: ActionType.ScanClient,
     };
 };
@@ -139,13 +159,23 @@ export const scanInFlight = (inFlight: boolean): ScanInFlightAction => ({
     type: ActionType.ScanInFlight,
 });
 
+export const scanSearch = (search: string): ScanSearchAction => ({
+    search,
+    type: ActionType.ScanSearch,
+});
+
+export const scanSeen = (uuid: string, seen: boolean): ScanSeenAction => ({
+    seen,
+    type: ActionType.ScanSeen,
+    uuid,
+});
+
 type ScanResponse = {
     scanID: string
     sheetID: string
 };
 
-export const manualScan = (successRedirect?: string,
-                           errorRedirect?: string): ThunkAction<Promise<Action|RouterAction|null>, All, null> => {
+export const manualScan = (): ThunkAction<Promise<Action|RouterAction|null>, All, null> => {
     return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction|null> => {
         dispatch(setManualScan('', true, ''));
         return fetch(document.location.origin + '/api/scan', {credentials: 'include'})
@@ -156,15 +186,9 @@ export const manualScan = (successRedirect?: string,
                 return response.json();
             })
             .then((json: ScanResponse): Action => {
-                if (successRedirect) {
-                    dispatch(push(successRedirect));
-                }
                 return dispatch(setManualScan(json.scanID, false, ''));
             })
             .catch((error: Error): Action => {
-                if (errorRedirect) {
-                    dispatch(push(errorRedirect));
-                }
                 return dispatch(setManualScan('', false, error.message));
             });
     };
@@ -194,11 +218,11 @@ export const requestSetSheet = (id: string): AsyncAction => {
     return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction> => {
         dispatch(setSheet(id, true));
         return fetch(document.location.origin + '/api/sheet/' + id, {credentials: 'include', method: 'POST'})
-            .then((response: Response): Promise<string> => {
+            .then((response: Response): Promise<string|void> => {
                 if (!response.ok) {
                     throw Error(response.statusText);
                 }
-                return response.json();
+                return Promise.resolve();
             })
             .then((): Action => dispatch(setSheet(id, false)))
             .catch((): Action => dispatch(setSheet('', false)))
@@ -220,9 +244,17 @@ export const setRegister = (done: boolean, inFlight: boolean, error: string): Se
     type: ActionType.SetRegister,
 });
 
-export const stopRegister = (): ThunkAction<Action, All, null> => {
+export const goHome = (): ThunkAction<Action, All, null> => {
     return (dispatch: redux.Dispatch<All>): Action => {
         dispatch(push('/'));
+        dispatch(scanSearch(''));
+        dispatch(setManualScan('', false, ''));
+        return dispatch(setRegister(false, false, ''));
+    };
+};
+
+export const clearRegistration = (): ThunkAction<Action, All, null> => {
+    return (dispatch: redux.Dispatch<All>): Action => {
         dispatch(setManualScan('', false, ''));
         return dispatch(setRegister(false, false, ''));
     };
@@ -271,7 +303,11 @@ export const requestRegister = (client: Client, photo: Blob|null, method: string
                     throw Error(upload.error);
                 }
                 client.photo = upload.fileID;
-                return fetch(document.location.origin + '/api/register', {
+                let url: string = document.location.origin + '/api/user';
+                if (method === 'PUT') {
+                    url += '/' + client.bsID;
+                }
+                return fetch(url, {
                     body: JSON.stringify(client),
                     credentials: 'include',
                     method,
@@ -285,5 +321,39 @@ export const requestRegister = (client: Client, photo: Blob|null, method: string
             })
             .then((): Action => dispatch(setRegister(true, false, '')))
             .catch((error: Error): Action => dispatch(setRegister(true, false, error.message)));
+    };
+};
+
+export const setClient = (id: string, inFlight: boolean, client: Client, error: string): SetClientAction => ({
+    client,
+    error,
+    id,
+    inFlight,
+    type: ActionType.SetClient,
+});
+
+const shouldRequestClient = (getState: () => All, id: string): boolean => {
+    const n = getState().clients.get(id);
+    if (n && n.inFlight) {
+        return false;
+    }
+    return true;
+};
+
+export const requestClient = (id: string): AsyncAction<void|Action> => {
+    return (dispatch: redux.Dispatch<All>, getState: () => All): Promise<void|Action> => {
+        if (shouldRequestClient(getState, id)) {
+            dispatch(setClient(id, true, {} as Client, ''));
+            return fetch(document.location.origin + '/api/user/' + id, {credentials: 'include'})
+                .then((response: Response): Promise<Client> => {
+                    if (!response.ok) {
+                        throw Error(response.statusText);
+                    }
+                    return response.json();
+                })
+                .then((c: Client): Action => dispatch(setClient(id, false, c, '')))
+            .catch((error: Error): Action => dispatch(setClient(id, false, {} as Client, error.message)));
+        }
+        return Promise.resolve();
     };
 };

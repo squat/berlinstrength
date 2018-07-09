@@ -29,6 +29,18 @@ const (
 	dateFormat       = "02/01/2006"
 )
 
+// notFoundError is the error type returned when a resource is not found.
+// This allows the server to return a 404.
+type notFoundError struct {
+	resource string
+	id       string
+}
+
+// Error implements the error interface.
+func (e *notFoundError) Error() string {
+	return fmt.Sprintf("%s %q was not found", e.resource, e.id)
+}
+
 // Config represents the configuration for the Berlin Strength API.
 type Config struct {
 	// OAuth ID
@@ -188,11 +200,11 @@ func userToRow(u *user) []interface{} {
 }
 
 type initialState struct {
-	Email     string  `json:"email"`
-	Scan      user    `json:"scan"`
-	ScanError string  `json:"scanError"`
-	Sheets    []sheet `json:"sheets"`
-	SheetID   string  `json:"sheetID"`
+	Client      user    `json:"client"`
+	Email       string  `json:"email"`
+	ClientError string  `json:"clientError"`
+	Sheets      []sheet `json:"sheets"`
+	SheetID     string  `json:"sheetID"`
 }
 
 type sheet struct {

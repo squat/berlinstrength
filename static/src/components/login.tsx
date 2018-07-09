@@ -36,11 +36,10 @@ const authenticatedRoute: React.SFC<UserAny> = ({user, props, location}: UserAny
             </TransitionGroup>
         );
     };
-    return <Route {...rest} render={render} />;
+    return <Route {...rest} render={render}/>;
 };
 
 type ConnectedState = {
-    children?: React.ReactNode
     user: User
 };
 
@@ -50,8 +49,7 @@ type UserAny = {
     user: User
 };
 
-const mapStateToProps = (state: All, props: {children?: React.ReactNode}): ConnectedState => ({
-    children: props.children,
+const mapStateToProps = (state: All): ConnectedState => ({
     user: state.user,
 });
 
@@ -71,3 +69,34 @@ const mapDispatchToProps = (dispatch: redux.Dispatch<All>): ConnectedDispatch =>
 
 export const Login = connect(mapStateToProps, mapDispatchToProps)(login);
 export const AuthenticatedRoute = connect(mapUserAny, mapDispatchToProps)(authenticatedRoute);
+
+type AuthenticatedProps = {
+    ready: boolean
+};
+
+const mapStateToAuthenticatedProps = (state: All): AuthenticatedProps => ({
+    ready: state.user.email !== '',
+});
+
+const authenticated: React.SFC<AuthenticatedProps> = ({ready, children}): JSX.Element => {
+    return ready && React.isValidElement(children) ? children : <span/>;
+};
+
+export const Authenticated = connect(mapStateToAuthenticatedProps)(authenticated);
+
+type SheetsReadyProps = {
+    ready: boolean
+    show: boolean
+};
+
+const mapStateToSheetsReadyProps = (state: All): SheetsReadyProps => ({
+    ready: state.user.email !== '' && state.setSheet.id !== '',
+    show: state.router.location ? state.router.location.pathname !== '/sheets' : true,
+});
+
+const sheetsReady: React.SFC<SheetsReadyProps> = ({ready, show, children}): JSX.Element => {
+    return ready ? (React.isValidElement(children) ? children : <span/>) :
+        (show ? <Redirect to="/sheets"/> : <span/>);
+};
+
+export const SheetsReady = connect(mapStateToSheetsReadyProps)(sheetsReady);

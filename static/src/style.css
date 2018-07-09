@@ -4,6 +4,7 @@
     --black: #222;
     --clear: rgba(255,255,255,0);
     --green: #0FA;
+    --grey: #CCC;
     --light: #E4F2E3;
     --white: #FFFFFF;
 }
@@ -19,19 +20,39 @@ body {
 }
 
 header {
+    align-items: center;
     background: var(--blue);
     color: var(--white);
+    display: flex;
     height: 4em;
+    justify-content: space-between;
     padding: 0 1.5em;
     position: relative;
     z-index: 1;
 }
 
+%header-group {
+    display: flex;
+    flex: 1 1 auto;
+}
+
+.header-group--left {
+    @extend %header-group;
+    justify-content: flex-start;
+}
+
+.header-group--middle {
+    @extend %header-group;
+    justify-content: center;
+}
+
+.header-group--right {
+    @extend %header-group;
+    justify-content: flex-end;
+}
+
 .login {
-    bottom: 1em;
     color: var(--white);
-    position: absolute;
-    right: 1.5em;
 }
 
 %noselect {
@@ -40,12 +61,9 @@ header {
 
 h1 {
     @extend %noselect;
-    bottom: .75em;
     cursor: default;
-    display: inline-block;
     font-size: 1.25em;
     margin: 0;
-    position: absolute;
 
     & a, & a:hover {
         background: none;
@@ -62,6 +80,12 @@ h2 {
     margin: 0;
 }
 
+%transition, .transition {
+    transition-duration: 0.15s;
+    /*transition-duration: 5s;*/
+    transition-property: all;
+}
+
 %underline {
     border-bottom: 2px solid var(--green);
     border-radius: 3px;
@@ -70,6 +94,7 @@ h2 {
 }
 
 a, input[type=submit], button {
+    @extend %transition;
     @extend %underline;
     background: none;
     border-left: none;
@@ -80,7 +105,6 @@ a, input[type=submit], button {
     outline: none;
     padding: 0;
     text-decoration: none;
-    transition: background .2s;
 
     &:hover {
         background: var(--green);
@@ -88,11 +112,12 @@ a, input[type=submit], button {
 }
 
 .container {
-    margin: auto;
     min-width: 20em;
     padding: 0 1.5em;
+    position: relative;
 
     &.container--sheets {
+        margin: auto;
         width: 35%;
     }
 }
@@ -110,6 +135,11 @@ li {
 }
 
 .page {
+    align-items: center;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    min-height: 100%;
     padding: 6em 0 1.5em 0;
     position: absolute;
     top: 0;
@@ -139,12 +169,6 @@ li {
     @extend .center--xy;
     left: 50%;
     top: 50%;
-}
-
-%transition, .transition {
-    transition-duration: 0.15s;
-    /*transition-duration: 5s;*/
-    transition-property: all;
 }
 
 .clearfix {
@@ -182,38 +206,63 @@ li {
     opacity: 1;
 }
 
-.blur-enter, .blur-exit.blur-exit-active, .blur-appear {
+.blur-enter, .blur-exit.blur-exit-active, .blur-appear,
+.localblur-enter, .localblur-exit.localblur-exit-active, .localblur-appear {
     @extend %blur;
     opacity: 0;
 }
 
-.blur-enter.blur-enter-active, .blur-exit, .blur-appear.blur-appear-active{
+.blur-enter.blur-enter-active, .blur-exit, .blur-appear.blur-appear-active,
+.localblur-enter.localblur-enter-active, .localblur-exit, .localblur-appear.localblur-appear-active {
     @extend %noblur;
     opacity: 1;
 }
 
-.blur-enter-active, .blur-exit-active, .blur-appear-active {
+.blur-enter-active, .blur-exit-active, .blur-appear-active,
+.localblur-enter-active, .localblur-exit-active, .localblur-appear-active {
     @extend %transition;
 }
 
 .blur-enter, .blur-exit {
-    @extend .center--x;
 }
 
-.scan {
+.card {
     @extend .container;
-    @extend .center--x;
     background: var(--white);
     border-radius: 3px;
     padding: 2em;
 }
 
-.scan--valid {
-    /*background: var(--green);*/
+.feed {
+    margin-top: 1.5em;
 }
 
-.scan--invalid {
-    /*background: var(--red);*/
+%miniscan {
+    align-items: center;
+    background: var(--white);
+    border-bottom: 0;
+    border-radius: 3px;
+    box-shadow: none;
+    display: flex;
+    height: 5em;
+    justify-content: flex-start;
+    padding: 1em 2em 1em 1em;
+    position: absolute;
+
+    &:hover {
+        background: var(--white);
+        box-shadow: 0 0 .5em var(--grey);
+    }
+}
+
+.miniscan--ok {
+    @extend %miniscan;
+    border-left: .5em solid var(--green);
+}
+
+.miniscan--error {
+    @extend %miniscan;
+    border-left: .5em solid var(--red);
 }
 
 .dismiss {
@@ -223,6 +272,7 @@ li {
     border-radius: 0 3px 0 0;
     box-shadow: none;
     color: var(--red);
+    cursor: pointer;
     display: inline-block;
     font-size: 1.5em;
     height: 1em;
@@ -366,6 +416,7 @@ label {
 }
 
 input {
+    @extend %transition;
     background: none;
     border-bottom: 2px solid var(--clear);
     border-left: none;
@@ -378,7 +429,6 @@ input {
     font-size: inherit;
     outline: none;
     padding: 0;
-    transition: all .2s;
 
     &:focus {
         @extend %underline;
@@ -398,6 +448,11 @@ input {
     display: block;
     margin: auto;
     overflow: hidden;
+}
+
+.avatar--miniscan {
+    border: none;
+    margin: 0 1em 0 0;
 }
 
 .serverstatus {
@@ -437,4 +492,53 @@ input {
     left: 2.5em;
     line-height: 1;
     position: absolute;
+}
+
+.search {
+    display: inline-block;
+    position: relative;
+    width: 100%;
+}
+
+.search-input {
+    background: rgba(255,255,255,.2);
+    box-sizing: border-box;
+    color: var(--white);
+    line-height: 1.75;
+    padding-left: 1.5em;
+    width: 100%;
+
+    &:focus {
+        color: var(--white);
+    }
+}
+
+.search-icon {
+    display: inline-block;
+    left: .75em;
+    margin: 0 auto;
+    padding: .5em 0;
+    pointer-events: none;
+    position: absolute;
+    text-align: center;
+    top: .75em;
+    width: 1.9em;
+}
+
+.search-icon--circle {
+    border-radius: 1em;
+    border: .2em solid var(--white);
+    height: 1em;
+    width: 1em;
+}
+
+.search-icon--rectangle {
+    border-bottom-right-radius: 1em;
+    border-top-right-radius: 1em;
+    border: .1em solid var(--white);
+    bottom: .3em;
+    position: absolute;
+    right: 0;
+    transform: rotate(45deg);
+    width: .7em;
 }

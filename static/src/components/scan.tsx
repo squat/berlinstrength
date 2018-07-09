@@ -2,18 +2,18 @@ import * as React from 'react';
 import { connect } from 'react-redux';
 import { RouteComponentProps } from 'react-router';
 import { Link } from 'react-router-dom';
-import { push } from 'react-router-redux';
 import * as redux from 'redux';
 
+import { goHome } from '../actions';
 import { All } from '../reducers';
-import { expired, Scan } from '../reducers/scan';
+import { Client, expired, NetworkClient } from '../reducers/client';
 import { Avatar } from './avatar';
 import { ErrorSuccess } from './register';
 
 type ScanProps = {
     dispatch: redux.Dispatch<All>
     inFlight: boolean
-    scan: Scan
+    networkClient: NetworkClient
 };
 
 type ErrorProps = {
@@ -34,33 +34,37 @@ export const ErrorScan: React.SFC<ErrorProps> = ({error}: ErrorProps) => (
 );
 
 type SuccessProps = {
-    scan: Scan
+    client: Client
+    inFlight: boolean
 };
 
-const SuccessScan: React.SFC<SuccessProps> = ({scan: s}: SuccessProps): JSX.Element => {
-    const d: Date = new Date(s.client.expiration);
+const SuccessScan: React.SFC<SuccessProps> = ({client: c, inFlight}: SuccessProps): JSX.Element => {
+    if (inFlight) {
+        return <div />;
+    }
+    const d: Date = new Date(c.expiration);
     return (
         <div>
-            {s.client.photo && <Avatar id={s.client.photo} />}
+            {c.photo && <Avatar id={c.photo} />}
             <ul className="fields">
                 <li>
                     <span className="field-key">Name:</span>
-                    <span className="field-value">{s.client.name}</span>
+                    <span className="field-value">{c.name}</span>
                 </li>
                 <li>
                     <span className="field-key">ID:</span>
-                    <span className="field-value">{s.client.bsID}</span>
+                    <span className="field-value">{c.bsID}</span>
                 </li>
                 <li>
                     <span className="field-key">Email:</span>
-                    <span className="field-value">{s.client.email}</span>
+                    <span className="field-value">{c.email}</span>
                 </li>
                 <li>
                     <span className="field-key">Debt:</span>
                     <span className="field-value">
-                        {`${s.client.debt ? 'has' : 'no'} debt`}
+                        {`${c.debt ? 'has' : 'no'} debt`}
                         &nbsp;
-                        {s.client.debt ? <i className="ex"/> : <i className="checkmark"/>}
+                        {c.debt ? <i className="ex"/> : <i className="checkmark"/>}
                     </span>
                 </li>
                 <li>
@@ -68,37 +72,40 @@ const SuccessScan: React.SFC<SuccessProps> = ({scan: s}: SuccessProps): JSX.Elem
                     <span className="field-value">
                         {d.toLocaleDateString('en-GB', {month: '2-digit', day: '2-digit', year: 'numeric'})}
                         &nbsp;
-                        {expired(s) ? <i className="ex"/> : <i className="checkmark"/>}
+                        {expired(c) ? <i className="ex"/> : <i className="checkmark"/>}
                     </span>
                 </li>
                 <li>
                     <span className="field-key">RFID:</span>
-                    <span className="field-value">{s.client.id}</span>
+                    <span className="field-value">{c.id}</span>
                 </li>
             </ul>
-            <Link to={`/edit/${s.client.bsID}`}>edit</Link>
+            <Link to={`/edit/${c.bsID}`}>edit</Link>
         </div>
     );
 };
 
-const scan: React.SFC<ScanProps> = ({inFlight, scan: s, dispatch}: ScanProps): JSX.Element => {
-    const close = () => dispatch(push('/'));
+const scan: React.SFC<ScanProps> = ({inFlight, networkClient: n, dispatch}: ScanProps): JSX.Element => {
+    const close = (e: React.MouseEvent<HTMLElement>): void => {
+        e.preventDefault();
+        dispatch(goHome());
+    };
     return (
-        <ErrorSuccess close={close} done={s.error !== ''} error={s.error} inFlight={inFlight}>
-            <SuccessScan scan={s} />
+        <ErrorSuccess close={close} done={n.error !== ''} error={n.error} inFlight={inFlight}>
+            <SuccessScan client={n.client} inFlight={n.inFlight}/>
         </ErrorSuccess>
     );
 };
 
 const mapStateToProps = (state: All, props: RouteComponentProps<{bsID: string}>): {
     inFlight: boolean,
-    scan: Scan
+    networkClient: NetworkClient
 } => {
-    const s: Scan = state.scan.scans.has(props.match.params.bsID) ?
-        state.scan.scans.get(props.match.params.bsID) as Scan :  {} as Scan;
+    const n: NetworkClient = state.clients.has(props.match.params.bsID) ?
+        state.clients.get(props.match.params.bsID) as NetworkClient :  {} as NetworkClient;
     return {
-        inFlight: state.scan.inFlight,
-        scan: s,
+        inFlight: state.scan.inFlight || n.inFlight,
+        networkClient: n,
     };
 };
 

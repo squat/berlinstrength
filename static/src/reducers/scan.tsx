@@ -3,15 +3,31 @@ import Action, {
     ScanClientAction,
     ScanErrorAction,
     ScanInFlightAction,
+    ScanSearchAction,
+    ScanSeenAction,
     SetManualScanAction,
-    SetRegisterAction,
-    SetUploadAction,
 } from '../actions';
 
+const generateUUID = (): string => {
+    let d = new Date().getTime();
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        d += performance.now();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c: string): string => {
+        // tslint:disable-next-line:no-bitwise
+        const r = (d + Math.random() * 16) % 16 | 0;
+        d = Math.floor(d / 16);
+        // tslint:disable-next-line:no-bitwise
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+};
+
 export type Scan = {
-    client: Client
     error: string
+    id: string
+    seen: boolean
     time: string
+    uuid: string
 };
 
 export type ManualScan = {
@@ -20,62 +36,56 @@ export type ManualScan = {
     inFlight: boolean
 };
 
-export type Client = {
-    bsID: string
-    debt: boolean
-    email: string
-    expiration: string
-    id: string
-    name: string
-    photo: string
-};
-
 export type ScanState = {
     inFlight: boolean
-    scans: Map<string, Scan>
+    scans: Scan[]
+    search: string
 };
 
-export type Register = {
-    done: boolean
-    error: string
-    inFlight: boolean
-};
-
-export type Upload = {
-    error: string
-    fileID: string
-    inFlight: boolean
-};
-
-export const expired = (s: Scan): boolean => (Date.parse(s.client.expiration) - Date.parse(s.time) < 0);
-
-const initialState: ScanState = {scans: new Map<string, Scan>(), inFlight: false};
+const initialState: ScanState = {inFlight: false, scans: [], search: ''};
 
 export const scan = (state: ScanState = initialState, action: Action): ScanState => {
     switch (action.type) {
         case ActionType.ScanClient:
             const s: Scan = {
-                client: (action as ScanClientAction).client,
                 error: '',
+                id: (action as ScanClientAction).id,
+                seen: false,
                 time: Date(),
+                uuid: generateUUID(),
             };
             return {
                 ...state,
-                scans: state.scans.set(s.client.bsID, s),
+                scans: [s].concat(state.scans),
             };
         case ActionType.ScanError:
             const e: Scan = {
-                client: {} as Client,
                 error: (action as ScanErrorAction).error,
+                id: '',
+                seen: false,
                 time: Date(),
+                uuid: generateUUID(),
             };
             return {
                 ...state,
-                scans: state.scans.set('error', e),
+                scans: [e].concat(state.scans),
             };
-
+        case ActionType.ScanSeen:
+            const i = state.scans.findIndex((sc: Scan): boolean => sc.uuid === (action as ScanSeenAction).uuid);
+            if (i === -1) {
+                return state;
+            }
+            const seen = {...state.scans[i], seen: (action as ScanSeenAction).seen};
+            const scans = state.scans.splice(0);
+            scans[i] = seen;
+            return {
+                ...state,
+                scans,
+            };
         case ActionType.ScanInFlight:
             return {...state, inFlight: (action as ScanInFlightAction).inFlight};
+        case ActionType.ScanSearch:
+            return {...state, search: (action as ScanSearchAction).search};
     }
     return state;
 };
@@ -89,34 +99,6 @@ export const manualScan = (state: ManualScan = initialManualScan, action: Action
                 error: (action as SetManualScanAction).error,
                 id: (action as SetManualScanAction).id,
                 inFlight: (action as SetManualScanAction).inFlight,
-            };
-    }
-    return state;
-};
-
-const initialRegister: Register = {done: false, error: '', inFlight: false};
-
-export const register = (state: Register = initialRegister, action: Action): Register => {
-    switch (action.type) {
-        case ActionType.SetRegister:
-            return {
-                done: (action as SetRegisterAction).done,
-                error: (action as SetRegisterAction).error,
-                inFlight: (action as SetRegisterAction).inFlight,
-            };
-    }
-    return state;
-};
-
-const initialUpload: Upload = {error: '', fileID: '', inFlight: false};
-
-export const upload = (state: Upload = initialUpload, action: Action): Upload => {
-    switch (action.type) {
-        case ActionType.SetUpload:
-            return {
-                error: (action as SetUploadAction).error,
-                fileID: (action as SetUploadAction).fileID,
-                inFlight: (action as SetUploadAction).inFlight,
             };
     }
     return state;

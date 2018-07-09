@@ -9,7 +9,10 @@ import { Sheet } from '../reducers/sheets';
 
 const sheet: React.SFC = (props: ConnectedState & ConnectedDispatch) => {
     const sheets = props.sheets.map((s: Sheet) => {
-        const click = () => props.dispatch(requestSetSheet(s.id));
+        const click = (e: React.MouseEvent<HTMLElement>) => {
+            e.preventDefault();
+            props.dispatch(requestSetSheet(s.id));
+        };
         return (
             <li onClick={click} key={s.id}>
                 <a>{s.name}</a>

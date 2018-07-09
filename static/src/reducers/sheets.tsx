@@ -20,7 +20,12 @@ export const sheets = (state: Sheet[] = initialState, action: Action): Sheet[] =
     return state;
 };
 
-export const setSheet = (state: SetSheet = {} as SetSheet, action: Action): SetSheet => {
+const initialSetSheetState: SetSheet = {
+    id: '',
+    inFlight: false,
+};
+
+export const setSheet = (state: SetSheet = initialSetSheetState, action: Action): SetSheet => {
     switch (action.type) {
         case ActionType.SetSheet:
         return {

@@ -7,16 +7,16 @@ import { TransitionGroup } from 'react-transition-group';
 import { applyMiddleware, createStore, Store } from 'redux';
 import thunkMiddleware from 'redux-thunk';
 
-import { addSheets, scanClient, scanError, setSheet, setUser, setWebSocket, webSocket } from './actions';
+import { addSheets, setClient, setSheet, setUser, setWebSocket, webSocket } from './actions';
 import { Fade, LocationFadeRoutes } from './components/fade';
 import { Header, ServerStatus } from './components/header';
-import { Instructions, ManualScanInstructions } from './components/instructions';
-import { AuthenticatedRoute } from './components/login';
-import {  RegisterForm } from './components/register';
+import { Instructions } from './components/instructions';
+import { Authenticated, AuthenticatedRoute } from './components/login';
+import { ConnectedRegisterForm } from './components/register';
 import { ScanView } from './components/scan';
 import { SheetView } from './components/sheets';
 import * as state from './reducers';
-import { Client } from './reducers/scan';
+import { Client } from './reducers/client';
 import { Sheet } from './reducers/sheets';
 import { isAuthenticated } from './reducers/user';
 import './style.css';
@@ -40,15 +40,14 @@ if (window.hasOwnProperty('state')) {
     if ((window as any).state.sheetID !== '') {
         sid = (window as any).state.sheetID as string;
         store.dispatch(setSheet(sid, false));
-    } else if (isAuthenticated(store.getState())) {
-        store.dispatch(push('/sheets'));
     }
-    if ((window as any).state.scanError as string !== '') {
-        store.dispatch(scanError((window as any).state.scanError as string));
+    if ((window as any).state.clientError as string !== '') {
+        store.dispatch(setClient('error', false, {} as Client, (window as any).state.clientError as string));
         store.dispatch(push('/scan/error'));
     }
-    if (((window as any).state.scan as Client).bsID !== '') {
-        store.dispatch(scanClient(((window as any).state.scan as Client)));
+    if (((window as any).state.client as Client).bsID !== '') {
+        const c: Client = (window as any).state.client as Client;
+        store.dispatch(setClient(c.bsID, false, c, ''));
     }
 }
 
@@ -72,13 +71,12 @@ ReactDom.render(
             <Provider store={store}>
                 <ConnectedRouter history={history}>
                     <div>
-                        <Header />
-                        {isAuthenticated(store.getState()) && <ServerStatus />}
+                        <Header/>
+                        <Authenticated><ServerStatus/></Authenticated>
                         <LocationFadeRoutes>
                             <AuthenticatedRoute redirect={false} exact={true} path="/" component={Instructions}/>
-                            <AuthenticatedRoute exact={true} path="/scan" component={ManualScanInstructions}/>
-                            <AuthenticatedRoute path="/edit/:bsID" component={RegisterForm}/>
-                            <AuthenticatedRoute path="/register" component={RegisterForm}/>
+                            <AuthenticatedRoute path="/edit/:bsID" component={ConnectedRegisterForm}/>
+                            <AuthenticatedRoute path="/register" component={ConnectedRegisterForm}/>
                             <AuthenticatedRoute path="/sheets" component={SheetView}/>
                             <AuthenticatedRoute path="/scan/:bsID" component={ScanView}/>
                         </LocationFadeRoutes>
