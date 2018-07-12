@@ -1,12 +1,19 @@
 import * as React from 'react';
 import * as Webcam from 'react-webcam';
 
+type blobHandler = (b: Blob) => any;
+
 type TakePhotoProps = {
     size?: number
-    cb?(photo: Blob): any
+    cb?: blobHandler
 };
 
-export class TakePhoto extends React.Component<TakePhotoProps, {src: string|null}> {
+type TakePhotoState = {
+    saved: boolean
+    src: string|null
+};
+
+export class TakePhoto extends React.Component<TakePhotoProps, TakePhotoState> {
     public static defaultProps: Partial<TakePhotoProps> = {
         size: 300,
     };
@@ -16,17 +23,18 @@ export class TakePhoto extends React.Component<TakePhotoProps, {src: string|null
     constructor(props: TakePhotoProps) {
         super(props);
         this.state = {
+            saved: false,
             src: null,
         };
     }
 
     public render() {
         const {size} = this.props;
-        const {src} = this.state;
+        const {saved, src} = this.state;
         const buttons: JSX.Element = src ?
             <button onClick={this.clear}>retake</button>
             : <button onClick={this.capture}>take photo</button>;
-        const w: JSX.Element = src ? <img className="center--xylocal" src={src} style={{height: size}} /> : (
+        const w: JSX.Element = (
             <Webcam
                 audio={false}
                 className="center--xylocal"
@@ -38,7 +46,8 @@ export class TakePhoto extends React.Component<TakePhotoProps, {src: string|null
         return (
             <div style={{textAlign: 'center'}}>
                 <div className="webcam" style={{height: size, width: size}}>
-                    {w}
+                    {src && <img className="center--xylocal" src={src} style={{height: size}} />}
+                    {!saved && w}
                 </div>
                 <div style={{textAlign: 'center'}}>
                     {buttons}
@@ -54,14 +63,14 @@ export class TakePhoto extends React.Component<TakePhotoProps, {src: string|null
     private capture = (e: React.MouseEvent<HTMLButtonElement>): void => {
         e.preventDefault();
         const src = this.webcam.getScreenshot();
-        this.setState({src});
+        this.setState({saved: false, src});
         if (!this.props.cb) {
             return;
         }
         this.toBlob(this.props.cb);
     }
 
-    private toBlob = (f: (photo: Blob) => any): void => {
+    private toBlob = (f: blobHandler): void => {
         const c = this.webcam.getCanvas();
         if (!c) {
             return;
@@ -79,11 +88,14 @@ export class TakePhoto extends React.Component<TakePhotoProps, {src: string|null
             return;
         }
         tctx.drawImage(c, (c.width - m) / 2, (c.height - m) / 2, m, m, 0, 0, m, m);
-        t.toBlob(f);
+        t.toBlob((b: Blob): any => {
+            f(b);
+            this.setState({saved: true, src: this.state.src});
+        });
     }
 
     private clear = (e: React.MouseEvent<HTMLButtonElement>): void => {
         e.preventDefault();
-        this.setState({src: null});
+        this.setState({saved: false, src: null});
     }
 }
