@@ -21,7 +21,8 @@ const miniscanHeight: number = 7;
 const miniscanMargin: number = 0.5;
 const dismissHeight: number = 2;
 
-const feed: React.SFC = ({clients, dispatch, scans}: (FeedProps & {dispatch: redux.Dispatch<All>})): JSX.Element => {
+const feed: React.SFC = ({clients, dispatch, scans}:
+    (FeedProps & {dispatch: redux.Dispatch<redux.AnyAction>})): JSX.Element => {
     const u: string[] = [];
     const s = scans.reduce<JSX.Element[]>((res, sc) => {
         const n = sc.error ? clients.get('error') : clients.get(sc.id);
@@ -61,7 +62,7 @@ const feed: React.SFC = ({clients, dispatch, scans}: (FeedProps & {dispatch: red
 
 type MiniScanProps = {
     client: NetworkClient
-    dispatch: redux.Dispatch<All>
+    dispatch: redux.Dispatch<redux.AnyAction>
     uuid: string
 };
 
@@ -97,7 +98,8 @@ const mapStateToProps = (state: All, {}): FeedProps => (
     }
 );
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<All>): {dispatch: redux.Dispatch<All>} => ({
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>):
+{dispatch: redux.Dispatch<redux.AnyAction>} => ({
     dispatch,
 });
 

@@ -3,6 +3,7 @@ const extract = new ExtractTextPlugin({filename: 'bundle.css'});
 
 module.exports = {
     entry: "./src/index.tsx",
+    mode: "development",
     output: {
         filename: "bundle.js",
         path: __dirname + "/dist"
@@ -52,13 +53,6 @@ module.exports = {
                                 sourceMap: true,
                             }
                         }
-                        //{
-                            //loader: 'sass-loader',
-                            //options: {
-                                //sourceMap: true,
-                                //outputStyle: 'compressed',
-                            //}
-                        //},
                     ],
                 }),
             }

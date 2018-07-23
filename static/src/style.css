@@ -310,6 +310,7 @@ li {
     font-style: normal;
     height: 1em;
     position: relative;
+    transform: rotate(45deg);
     vertical-align: -.15em;
     width: 1em;
 }
@@ -327,19 +328,28 @@ li {
 }
 
 .ex::before {
-    color: var(--white);
-    content: "\00d7";
-    font-weight: bold;
-    left: 50%;
+    background-color: var(--white);
+    content: "";
+    height: .6em;
+    left: .425em;
     position: absolute;
-    top: 50%;
-    transform: translate(-.325em, -.825em);
+    top: .2em;
+    width: .15em;
+}
+
+.ex::after {
+    background-color: var(--white);
+    content: "";
+    height: .15em;
+    left: .2em;
+    position: absolute;
+    top: .425em;
+    width: .6em;
 }
 
 .checkmark {
     @extend %mark;
     background: var(--green);
-    transform: rotate(45deg);
 }
 
 .checkmark::before {

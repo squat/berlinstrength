@@ -11,9 +11,16 @@ import { Avatar } from './avatar';
 import { ErrorSuccess } from './register';
 
 type ScanProps = {
-    dispatch: redux.Dispatch<All>
     inFlight: boolean
     networkClient: NetworkClient
+};
+
+type Actions = {
+    goHome: typeof goHome
+};
+
+type Dispatch = {
+    actions: Actions
 };
 
 type ErrorProps = {
@@ -85,10 +92,11 @@ const SuccessScan: React.SFC<SuccessProps> = ({client: c, inFlight}: SuccessProp
     );
 };
 
-const scan: React.SFC<ScanProps> = ({inFlight, networkClient: n, dispatch}: ScanProps): JSX.Element => {
+const scan: React.SFC<ScanProps&Dispatch> =
+    ({inFlight, networkClient: n, ...props}: ScanProps&Dispatch): JSX.Element => {
     const close = (e: React.MouseEvent<HTMLElement>): void => {
         e.preventDefault();
-        dispatch(goHome());
+        props.actions.goHome();
     };
     return (
         <ErrorSuccess close={close} done={n.error !== ''} error={n.error} inFlight={inFlight}>
@@ -109,8 +117,8 @@ const mapStateToProps = (state: All, props: RouteComponentProps<{bsID: string}>)
     };
 };
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<All>): {dispatch: redux.Dispatch<All>} => ({
-    dispatch,
-});
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+    {actions: redux.bindActionCreators({goHome}, dispatch)}
+);
 
 export const ScanView = connect(mapStateToProps, mapDispatchToProps)(scan);

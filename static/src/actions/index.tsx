@@ -17,6 +17,7 @@ const sound: Howl = new Howl({
 
 export enum ActionType {
     AddSheets = 'AddSheets',
+    Null = 'Null',
     SetClient = 'SetClient',
     SetManualScan = 'SetManualScan',
     SetRegister = 'SetRegister',
@@ -98,6 +99,8 @@ export interface SetWebSocketAction extends Action {
     state: boolean;
 }
 
+export type AsyncAction<T = Action|RouterAction> = ThunkAction<Promise<T>, All, null, redux.AnyAction>;
+
 export const setUser = (email: string): SetUserAction => ({
     email,
     type: ActionType.SetUser,
@@ -105,7 +108,7 @@ export const setUser = (email: string): SetUserAction => ({
 
 export const webSocket = (raw: string): AsyncAction => {
     const json = JSON.parse(raw);
-    return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction> => {
+    return (dispatch: redux.Dispatch<redux.AnyAction>): Promise<Action|RouterAction> => {
         if (json.hasOwnProperty('scanning')) {
             return Promise.resolve(dispatch(scanInFlight(json.scanning as boolean)));
         }
@@ -149,7 +152,7 @@ export const scanClient = (client: Client): ScanClientAction => {
         sound.play('ok');
     }
     return {
-        id: client.bsID,
+        id: client.bsID.toLowerCase(),
         type: ActionType.ScanClient,
     };
 };
@@ -175,8 +178,8 @@ type ScanResponse = {
     sheetID: string
 };
 
-export const manualScan = (): ThunkAction<Promise<Action|RouterAction|null>, All, null> => {
-    return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction|null> => {
+export const manualScan = (): ThunkAction<Promise<Action>, All, null, redux.AnyAction> => {
+    return (dispatch: redux.Dispatch<redux.AnyAction>): Promise<Action> => {
         dispatch(setManualScan('', true, ''));
         return fetch(document.location.origin + '/api/scan', {credentials: 'include'})
             .then((response: Response): Promise<ScanResponse> => {
@@ -212,10 +215,8 @@ export const setSheet = (id: string, inFlight: boolean): SetSheetAction => ({
     type: ActionType.SetSheet,
 });
 
-type AsyncAction<T= Action|RouterAction> = (dispatch: redux.Dispatch<All>, getState: () => All) => Promise<T>;
-
 export const requestSetSheet = (id: string): AsyncAction => {
-    return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction> => {
+    return (dispatch: redux.Dispatch<Action|RouterAction>): Promise<Action|RouterAction> => {
         dispatch(setSheet(id, true));
         return fetch(document.location.origin + '/api/sheet/' + id, {credentials: 'include', method: 'POST'})
             .then((response: Response): Promise<string|void> => {
@@ -231,7 +232,7 @@ export const requestSetSheet = (id: string): AsyncAction => {
 };
 
 export const logout = (): AsyncAction => {
-    return (dispatch: redux.Dispatch<All>): Promise<Action> => {
+    return (dispatch: redux.Dispatch<Action>): Promise<Action> => {
         return fetch(document.location.origin + '/logout', {credentials: 'include', method: 'POST'})
             .then((): Action => dispatch(setUser('')));
     };
@@ -244,8 +245,8 @@ export const setRegister = (done: boolean, inFlight: boolean, error: string): Se
     type: ActionType.SetRegister,
 });
 
-export const goHome = (): ThunkAction<Action, All, null> => {
-    return (dispatch: redux.Dispatch<All>): Action => {
+export const goHome = (): ThunkAction<Action, All, null, redux.AnyAction> => {
+    return (dispatch: redux.Dispatch<redux.AnyAction>): Action => {
         dispatch(push('/'));
         dispatch(scanSearch(''));
         dispatch(setManualScan('', false, ''));
@@ -253,8 +254,8 @@ export const goHome = (): ThunkAction<Action, All, null> => {
     };
 };
 
-export const clearRegistration = (): ThunkAction<Action, All, null> => {
-    return (dispatch: redux.Dispatch<All>): Action => {
+export const clearRegistration = (): ThunkAction<Action, All, null, redux.AnyAction> => {
+    return (dispatch: redux.Dispatch<redux.AnyAction>): Action => {
         dispatch(setManualScan('', false, ''));
         return dispatch(setRegister(false, false, ''));
     };
@@ -272,7 +273,7 @@ type UploadResponse = {
 };
 
 export const requestUpload = (client: Client, photo: Blob|null): AsyncAction<SetUploadAction> => {
-    return (dispatch: redux.Dispatch<All>): Promise<SetUploadAction> => {
+    return (dispatch: redux.Dispatch<SetUploadAction>): Promise<SetUploadAction> => {
         if (!photo) {
             return Promise.resolve(setUpload('', false, ''));
         }
@@ -296,9 +297,10 @@ export const requestUpload = (client: Client, photo: Blob|null): AsyncAction<Set
 };
 
 export const requestRegister = (client: Client, photo: Blob|null, method: string = 'POST'): AsyncAction => {
-    return (dispatch: redux.Dispatch<All>): Promise<Action|RouterAction> => {
+    return (dispatch: redux.Dispatch<Action|RouterAction>, getState, e): Promise<Action|RouterAction> => {
         dispatch(setRegister(false, true, ''));
-        return dispatch(requestUpload(client, photo)).then((upload: SetUploadAction): Promise<Response> => {
+        return requestUpload(client, photo)(dispatch, getState, e)
+            .then((upload: SetUploadAction): Promise<Response> => {
                 if (upload.error !== '' ) {
                     throw Error(upload.error);
                 }
@@ -327,7 +329,7 @@ export const requestRegister = (client: Client, photo: Blob|null, method: string
 export const setClient = (id: string, inFlight: boolean, client: Client, error: string): SetClientAction => ({
     client,
     error,
-    id,
+    id: id.toLowerCase(),
     inFlight,
     type: ActionType.SetClient,
 });
@@ -340,8 +342,8 @@ const shouldRequestClient = (getState: () => All, id: string): boolean => {
     return true;
 };
 
-export const requestClient = (id: string): AsyncAction<void|Action> => {
-    return (dispatch: redux.Dispatch<All>, getState: () => All): Promise<void|Action> => {
+export const requestClient = (id: string): AsyncAction<Action> => {
+    return (dispatch: redux.Dispatch<redux.AnyAction>, getState: () => All): Promise<Action> => {
         if (shouldRequestClient(getState, id)) {
             dispatch(setClient(id, true, {} as Client, ''));
             return fetch(document.location.origin + '/api/user/' + id, {credentials: 'include'})
@@ -354,6 +356,6 @@ export const requestClient = (id: string): AsyncAction<void|Action> => {
                 .then((c: Client): Action => dispatch(setClient(id, false, c, '')))
             .catch((error: Error): Action => dispatch(setClient(id, false, {} as Client, error.message)));
         }
-        return Promise.resolve();
+        return Promise.resolve({type: ActionType.Null});
     };
 };

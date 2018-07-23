@@ -7,15 +7,24 @@ import { requestClient, scanSearch } from '../actions';
 import { All } from '../reducers';
 
 type scanSearchProps = {
-    dispatch: redux.Dispatch<All>
     search: string
+};
+
+type Actions = {
+    push: typeof push
+    requestClient: typeof requestClient
+    scanSearch: typeof scanSearch
+};
+
+type Dispatch = {
+    actions: Actions
 };
 
 const mapSearchToProps = (state: All, {}): {search: string} => ({search: state.scan.search});
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<All>): {dispatch: redux.Dispatch<All>} => ({
-    dispatch,
-});
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+    {actions: redux.bindActionCreators({push, requestClient, scanSearch}, dispatch)}
+);
 
 const SearchIcon: React.SFC<React.HTMLAttributes<HTMLDivElement>> =
 (props: React.HTMLAttributes<HTMLDivElement>): JSX.Element => (
@@ -25,21 +34,21 @@ const SearchIcon: React.SFC<React.HTMLAttributes<HTMLDivElement>> =
     </div>
 );
 
-const search: React.SFC<scanSearchProps> = ({dispatch, search: s}: scanSearchProps): JSX.Element => {
+const search: React.SFC<scanSearchProps&Dispatch> = ({search: s, ...props}: scanSearchProps&Dispatch): JSX.Element => {
     const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         e.preventDefault();
-        const id: string = e.target.value;
+        const id: string = e.target.value.toLowerCase();
         if (id === s) {
             return;
         }
         if (id === '') {
-            dispatch(scanSearch(id));
-            dispatch(push('/'));
+            props.actions.scanSearch(id);
+            props.actions.push('/');
             return;
         }
-        dispatch(scanSearch(id));
-        dispatch(requestClient(id));
-        dispatch(push(`/scan/${id}`));
+        props.actions.scanSearch(id);
+        props.actions.requestClient(id);
+        props.actions.push(`/scan/${id}`);
     };
     return (
         <div className="search">

@@ -13,13 +13,20 @@ import { Loadable } from './loader';
 import { ErrorScan } from './scan';
 import { TakePhoto } from './webcam';
 
-type Dispatch = {
-    dispatch: redux.Dispatch<All>
+type Actions = {
+    clearRegistration: typeof clearRegistration
+    manualScan: typeof manualScan
+    push: typeof push
+    requestRegister: typeof requestRegister
 };
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<All>) => ({
-    dispatch,
-});
+type Dispatch = {
+    actions: Actions
+};
+
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>) => (
+    {actions: redux.bindActionCreators({clearRegistration, manualScan, push, requestRegister}, dispatch)}
+);
 
 type RegisterProps = {
     client?: Client
@@ -55,17 +62,23 @@ export const ErrorSuccess: React.SFC<ErrorSuccessProps> = ({children, inFlight, 
     </Loadable>
 );
 
-class RegisterForm extends React.Component<RegisterProps & Dispatch> {
+class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blob|null}> {
+    constructor(props: RegisterProps & Dispatch) {
+        super(props);
+        this.state = {
+            photo: null,
+        };
+    }
+
     public render() {
-        const {client, edit, manualScan: m, dispatch, register: r} = this.props;
+        const {client, edit, manualScan: m, register: r} = this.props;
         const rfid: string = m.id ? m.id : client ? client.id : '';
-        let photo: Blob|null = null;
         const cb = (p: Blob): void => {
-            photo = p;
+            this.setState({photo: p});
         };
         const close = (e: React.MouseEvent<HTMLElement>) => {
             e.preventDefault();
-            dispatch(push('/'));
+            this.props.actions.push('/');
         };
         const submit = (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault();
@@ -90,11 +103,11 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch> {
             }
             c.debt = false;
             c.id = rfid;
-            dispatch(requestRegister(c, photo, edit ? 'PUT' : 'POST'));
+            this.props.actions.requestRegister(c, this.state.photo, edit ? 'PUT' : 'POST');
         };
         const rescan = (e: React.MouseEvent<HTMLElement>) => {
             e.preventDefault();
-            dispatch(manualScan());
+            this.props.actions.manualScan();
         };
 
         return (
@@ -181,7 +194,7 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch> {
     }
 
     public componentWillUnmount() {
-        this.props.dispatch(clearRegistration());
+        this.props.actions.clearRegistration();
     }
 }
 

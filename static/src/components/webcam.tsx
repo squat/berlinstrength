@@ -37,8 +37,7 @@ export class TakePhoto extends React.Component<TakePhotoProps, TakePhotoState> {
         const w: JSX.Element = (
             <Webcam
                 audio={false}
-                className="center--xylocal"
-                height={size}
+                style={{height: '100%', objectFit: 'cover', width: '100%'}}
                 ref={this.setWebcam}
                 screenshotFormat="image/png"
             />
@@ -46,7 +45,7 @@ export class TakePhoto extends React.Component<TakePhotoProps, TakePhotoState> {
         return (
             <div style={{textAlign: 'center'}}>
                 <div className="webcam" style={{height: size, width: size}}>
-                    {src && <img className="center--xylocal" src={src} style={{height: size}} />}
+                    {src && <img src={src} style={{height: '100%', objectFit: 'cover', width: '100%'}} />}
                     {!saved && w}
                 </div>
                 <div style={{textAlign: 'center'}}>

@@ -7,11 +7,11 @@ import { requestSetSheet } from '../actions';
 import { All } from '../reducers';
 import { Sheet } from '../reducers/sheets';
 
-const sheet: React.SFC = (props: ConnectedState & ConnectedDispatch) => {
+const sheet: React.SFC = (props: ConnectedState&Dispatch) => {
     const sheets = props.sheets.map((s: Sheet) => {
         const click = (e: React.MouseEvent<HTMLElement>) => {
             e.preventDefault();
-            props.dispatch(requestSetSheet(s.id));
+            props.actions.requestSetSheet(s.id);
         };
         return (
             <li onClick={click} key={s.id}>
@@ -42,12 +42,16 @@ const mapStateToProps = (state: All, _: {}): ConnectedState => ({
     sheets: state.sheets,
 });
 
-interface ConnectedDispatch {
-    dispatch: redux.Dispatch<All>;
-}
+type Actions = {
+    requestSetSheet: typeof requestSetSheet
+};
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<All>): ConnectedDispatch => ({
-    dispatch,
-});
+type Dispatch = {
+    actions: Actions
+};
+
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+    {actions: redux.bindActionCreators({requestSetSheet}, dispatch)}
+);
 
 export const SheetView = connect(mapStateToProps, mapDispatchToProps)(sheet);

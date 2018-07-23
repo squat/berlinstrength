@@ -8,7 +8,7 @@ import { Authenticated, Login, SheetsReady } from './login';
 import { Search } from './search';
 
 type DispatchProps = {
-    dispatch: redux.Dispatch<All>
+    dispatch: redux.Dispatch<redux.AnyAction>
 };
 
 const homeLink: React.SFC<DispatchProps & any> = ({dispatch, children, ...props}): JSX.Element => {

@@ -8,7 +8,7 @@ PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
 IMAGE ?= squat/$(PROJECT)-$(ARCH)
 
-PRODUCTION := 0
+PRODUCTION ?= 0
 TAG := $(shell git describe --abbrev=0 --tags HEAD 2>/dev/null)
 COMMIT := $(shell git rev-parse HEAD)
 VERSION := $(COMMIT)
@@ -21,7 +21,7 @@ DIRTY := $(shell test -z "$$(git diff --shortstat 2>/dev/null)" || echo -dirty)
 VERSION := $(VERSION)$(DIRTY)
 JS_FLAGS :=
 ifeq ($(PRODUCTION), 1)
-JS_FLAGS += -- -p
+JS_FLAGS += --mode production
 endif
 LD_FLAGS := -ldflags '-X $(PKG)/version.Version=$(VERSION)'
 SRC := $(shell find . -type f -name '*.go' -not -path "./vendor/*") ./statik/statik.go

@@ -9,8 +9,8 @@ import { All } from '../reducers';
 import { User } from '../reducers/user';
 import { Fade } from './fade';
 
-const login: React.SFC = ({user, dispatch}: ConnectedState & ConnectedDispatch) => {
-    const click = () => dispatch(logout());
+const login: React.SFC = ({user, ...props}: ConnectedState & Dispatch) => {
+    const click = () => props.actions.logout();
     if (user.email) {
         return <a className="login" onClick={click}>logout</a>;
     }
@@ -59,16 +59,20 @@ const mapUserAny = (state: All, props: any): UserAny => ({
     user: state.user,
 });
 
-type ConnectedDispatch = {
-    dispatch: redux.Dispatch<All>
+type Actions = {
+    logout: typeof logout
 };
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<All>): ConnectedDispatch => ({
-    dispatch,
-});
+type Dispatch = {
+    actions: Actions
+};
+
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+    {actions: redux.bindActionCreators({logout}, dispatch)}
+);
 
 export const Login = connect(mapStateToProps, mapDispatchToProps)(login);
-export const AuthenticatedRoute = connect(mapUserAny, mapDispatchToProps)(authenticatedRoute);
+export const AuthenticatedRoute = connect(mapUserAny, {})(authenticatedRoute);
 
 type AuthenticatedProps = {
     ready: boolean

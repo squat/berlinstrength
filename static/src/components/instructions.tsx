@@ -8,7 +8,7 @@ import { Feed } from './feed';
 import { Loadable } from './loader';
 
 type Dispatch = {
-    dispatch: redux.Dispatch<All>
+    dispatch: redux.Dispatch<redux.AnyAction>
 };
 
 const instructions: React.SFC = (props: {inFlight: boolean} & Dispatch) => {
@@ -32,7 +32,7 @@ const mapInFlightToProps = (state: All, _: {}) => ({
     inFlight: state.scan.inFlight,
 });
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<All>) => ({
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>) => ({
     dispatch,
 });
 
