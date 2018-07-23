@@ -84,7 +84,6 @@ export interface SetManualScanAction extends Action {
 }
 
 export interface SetRegisterAction extends Action {
-    done: boolean;
     error: string;
     inFlight: boolean;
 }
@@ -238,8 +237,7 @@ export const logout = (): AsyncAction => {
     };
 };
 
-export const setRegister = (done: boolean, inFlight: boolean, error: string): SetRegisterAction => ({
-    done,
+export const setRegister = (inFlight: boolean, error: string): SetRegisterAction => ({
     error,
     inFlight,
     type: ActionType.SetRegister,
@@ -250,14 +248,14 @@ export const goHome = (): ThunkAction<Action, All, null, redux.AnyAction> => {
         dispatch(push('/'));
         dispatch(scanSearch(''));
         dispatch(setManualScan('', false, ''));
-        return dispatch(setRegister(false, false, ''));
+        return dispatch(setRegister(false, ''));
     };
 };
 
 export const clearRegistration = (): ThunkAction<Action, All, null, redux.AnyAction> => {
     return (dispatch: redux.Dispatch<redux.AnyAction>): Action => {
         dispatch(setManualScan('', false, ''));
-        return dispatch(setRegister(false, false, ''));
+        return dispatch(setRegister(false, ''));
     };
 };
 
@@ -298,7 +296,7 @@ export const requestUpload = (client: Client, photo: Blob|null): AsyncAction<Set
 
 export const requestRegister = (client: Client, photo: Blob|null, method: string = 'POST'): AsyncAction => {
     return (dispatch: redux.Dispatch<Action|RouterAction>, getState, e): Promise<Action|RouterAction> => {
-        dispatch(setRegister(false, true, ''));
+        dispatch(setRegister(true, ''));
         return requestUpload(client, photo)(dispatch, getState, e)
             .then((upload: SetUploadAction): Promise<Response> => {
                 if (upload.error !== '' ) {
@@ -321,8 +319,8 @@ export const requestRegister = (client: Client, photo: Blob|null, method: string
                 }
                 return Promise.resolve(client.id);
             })
-            .then((): Action => dispatch(setRegister(true, false, '')))
-            .catch((error: Error): Action => dispatch(setRegister(true, false, error.message)));
+            .then((): Action => dispatch(setRegister(false, '')))
+            .catch((error: Error): Action => dispatch(setRegister(false, error.message)));
     };
 };
 

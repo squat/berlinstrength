@@ -24,7 +24,6 @@ export type NetworkClient = {
 export type ClientState = Map<string, NetworkClient>;
 
 export type Register = {
-    done: boolean
     error: string
     inFlight: boolean
 };
@@ -39,13 +38,12 @@ export const expired = (c: Client): boolean => (Date.parse(c.expiration) - Date.
 
 export const clientOK = (c: NetworkClient): boolean => c.error === '' && !expired(c.client) && !c.client.debt;
 
-const initialRegister: Register = {done: false, error: '', inFlight: false};
+const initialRegister: Register = {error: '', inFlight: false};
 
 export const register = (state: Register = initialRegister, action: Action): Register => {
     switch (action.type) {
         case ActionType.SetRegister:
             return {
-                done: (action as SetRegisterAction).done,
                 error: (action as SetRegisterAction).error,
                 inFlight: (action as SetRegisterAction).inFlight,
             };

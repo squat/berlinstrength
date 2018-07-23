@@ -60,14 +60,14 @@ const mapUserAny = (state: All, props: any): UserAny => ({
 });
 
 type Actions = {
-    logout: typeof logout
+    logout: () => Promise<redux.AnyAction>
 };
 
 type Dispatch = {
     actions: Actions
 };
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>) => (
     {actions: redux.bindActionCreators({logout}, dispatch)}
 );
 

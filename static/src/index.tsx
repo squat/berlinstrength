@@ -4,9 +4,9 @@ import * as ReactDom from 'react-dom';
 import { Provider } from 'react-redux';
 import { ConnectedRouter, push, routerMiddleware } from 'react-router-redux';
 import { TransitionGroup } from 'react-transition-group';
+import ReconnectingWebSocket from 'reconnecting-websocket';
 import { applyMiddleware, bindActionCreators, createStore, Store } from 'redux';
 import thunkMiddleware from 'redux-thunk';
-import ReconnectingWebSocket from 'reconnecting-websocket';
 
 import { addSheets, setClient, setSheet, setUser, setWebSocket, webSocket } from './actions';
 import { Fade, LocationFadeRoutes } from './components/fade';

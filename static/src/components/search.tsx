@@ -1,6 +1,7 @@
+import { LocationDescriptor, LocationState } from 'history';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { push } from 'react-router-redux';
+import { push, RouterAction } from 'react-router-redux';
 import * as redux from 'redux';
 
 import { requestClient, scanSearch } from '../actions';
@@ -11,9 +12,9 @@ type scanSearchProps = {
 };
 
 type Actions = {
-    push: typeof push
-    requestClient: typeof requestClient
-    scanSearch: typeof scanSearch
+    push: (location: LocationDescriptor, state?: LocationState) => RouterAction
+    requestClient: (id: string) => Promise<redux.AnyAction>
+    scanSearch: (search: string) => redux.AnyAction
 };
 
 type Dispatch = {
@@ -22,7 +23,7 @@ type Dispatch = {
 
 const mapSearchToProps = (state: All, {}): {search: string} => ({search: state.scan.search});
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>) => (
     {actions: redux.bindActionCreators({push, requestClient, scanSearch}, dispatch)}
 );
 

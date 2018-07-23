@@ -1,6 +1,7 @@
+import { LocationDescriptor, LocationState } from 'history';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { push } from 'react-router-redux';
+import { push, RouterAction } from 'react-router-redux';
 import { TransitionGroup } from 'react-transition-group';
 import * as redux from 'redux';
 
@@ -14,10 +15,10 @@ import { ErrorScan } from './scan';
 import { TakePhoto } from './webcam';
 
 type Actions = {
-    clearRegistration: typeof clearRegistration
-    manualScan: typeof manualScan
-    push: typeof push
-    requestRegister: typeof requestRegister
+    clearRegistration: () => Promise<redux.AnyAction>
+    manualScan: () => Promise<redux.AnyAction>
+    push: (location: LocationDescriptor, state?: LocationState) => RouterAction
+    requestRegister: (client: Client, photo: Blob|null, method: string) => Promise<redux.AnyAction>
 };
 
 type Dispatch = {
@@ -62,10 +63,11 @@ export const ErrorSuccess: React.SFC<ErrorSuccessProps> = ({children, inFlight, 
     </Loadable>
 );
 
-class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blob|null}> {
+class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blob|null, done: boolean}> {
     constructor(props: RegisterProps & Dispatch) {
         super(props);
         this.state = {
+            done: false,
             photo: null,
         };
     }
@@ -74,7 +76,7 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blo
         const {client, edit, manualScan: m, register: r} = this.props;
         const rfid: string = m.id ? m.id : client ? client.id : '';
         const cb = (p: Blob): void => {
-            this.setState({photo: p});
+            this.setState(Object.assign(this.state, {photo: p}));
         };
         const close = (e: React.MouseEvent<HTMLElement>) => {
             e.preventDefault();
@@ -103,7 +105,8 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blo
             }
             c.debt = false;
             c.id = rfid;
-            this.props.actions.requestRegister(c, this.state.photo, edit ? 'PUT' : 'POST');
+            this.props.actions.requestRegister(c, this.state.photo, edit ? 'PUT' : 'POST')
+                .then((): void => this.setState(Object.assign(this.state, {done: true})));
         };
         const rescan = (e: React.MouseEvent<HTMLElement>) => {
             e.preventDefault();
@@ -111,7 +114,7 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blo
         };
 
         return (
-            <ErrorSuccess error={r.error} inFlight={r.inFlight} done={r.done} close={close}>
+            <ErrorSuccess error={r.error} inFlight={r.inFlight} done={this.state.done} close={close}>
                 <form onSubmit={submit}>
                     <ul className="fields">
                         <li>

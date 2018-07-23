@@ -43,14 +43,14 @@ const mapStateToProps = (state: All, _: {}): ConnectedState => ({
 });
 
 type Actions = {
-    requestSetSheet: typeof requestSetSheet
+    requestSetSheet: (id: string) => Promise<redux.AnyAction>
 };
 
 type Dispatch = {
     actions: Actions
 };
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>) => (
     {actions: redux.bindActionCreators({requestSetSheet}, dispatch)}
 );
 

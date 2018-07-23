@@ -16,7 +16,7 @@ type ScanProps = {
 };
 
 type Actions = {
-    goHome: typeof goHome
+    goHome: () => redux.AnyAction
 };
 
 type Dispatch = {
@@ -117,7 +117,7 @@ const mapStateToProps = (state: All, props: RouteComponentProps<{bsID: string}>)
     };
 };
 
-const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>): Dispatch => (
+const mapDispatchToProps = (dispatch: redux.Dispatch<redux.AnyAction>) => (
     {actions: redux.bindActionCreators({goHome}, dispatch)}
 );
 
