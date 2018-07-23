@@ -6,6 +6,7 @@ import { ConnectedRouter, push, routerMiddleware } from 'react-router-redux';
 import { TransitionGroup } from 'react-transition-group';
 import { applyMiddleware, bindActionCreators, createStore, Store } from 'redux';
 import thunkMiddleware from 'redux-thunk';
+import ReconnectingWebSocket from 'reconnecting-websocket';
 
 import { addSheets, setClient, setSheet, setUser, setWebSocket, webSocket } from './actions';
 import { Fade, LocationFadeRoutes } from './components/fade';
@@ -54,7 +55,7 @@ if (window.hasOwnProperty('state')) {
 }
 
 if (isAuthenticated(store.getState())) {
-        const ws: WebSocket = new WebSocket(`ws${document.location.protocol.startsWith('https') ? 's' : ''}://`
+        const ws = new ReconnectingWebSocket(`ws${document.location.protocol.startsWith('https') ? 's' : ''}://`
                     + document.location.host + '/api/ws');
         ws.onmessage = (e): void => {
                     bindActionCreators({webSocket}, store.dispatch).webSocket(e.data);
