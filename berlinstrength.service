@@ -1,7 +1,7 @@
 [Unit]
 Description=Berlin Strength RFID scanner
-After=docker.service
-Requires=docker.service
+After=docker.service network-online.target
+Requires=docker.service network-online.target
 Wants=traefik.service
 
 [Service]
