@@ -405,7 +405,7 @@ func (a *API) createUserHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(err, http.StatusInternalServerError).ServeHTTP(w, r)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	writeJSON(u).ServeHTTP(w, r)
 }
 
 // scanHandler grabs a single ID from the RFID scanner.
@@ -458,7 +458,9 @@ func (a *API) sheetHandler(w http.ResponseWriter, r *http.Request) {
 	s.Values[sessionSheetKey] = sid
 	s.Save(w)
 	a.sheets[s.Values[sessionIDKey].(string)] = sid
-	w.WriteHeader(http.StatusOK)
+	writeJSON(struct {
+		SheetID string `json:"sheetID"`
+	}{sid}).ServeHTTP(w, r)
 }
 
 // websocketHandler handles websocket connections and ensures clients are

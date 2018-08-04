@@ -181,11 +181,12 @@ export const manualScan = (): ThunkAction<Promise<Action>, All, null, redux.AnyA
     return (dispatch: redux.Dispatch<redux.AnyAction>): Promise<Action> => {
         dispatch(setManualScan('', true, ''));
         return fetch(document.location.origin + '/api/scan', {credentials: 'include'})
-            .then((response: Response): Promise<ScanResponse> => {
+            .then((response: Response) => Promise.all([response, response.json()]))
+            .then(([response, json]): Promise<ScanResponse> => {
                 if (!response.ok) {
-                    throw Error(response.statusText);
+                    throw Error(json.error);
                 }
-                return response.json();
+                return json;
             })
             .then((json: ScanResponse): Action => {
                 return dispatch(setManualScan(json.scanID, false, ''));
@@ -218,11 +219,12 @@ export const requestSetSheet = (id: string): AsyncAction => {
     return (dispatch: redux.Dispatch<Action|RouterAction>): Promise<Action|RouterAction> => {
         dispatch(setSheet(id, true));
         return fetch(document.location.origin + '/api/sheet/' + id, {credentials: 'include', method: 'POST'})
-            .then((response: Response): Promise<string|void> => {
+            .then((response: Response) => Promise.all([response, response.json()]))
+            .then(([response, json]): Promise<string|void> => {
                 if (!response.ok) {
-                    throw Error(response.statusText);
+                    throw Error(json.error);
                 }
-                return Promise.resolve();
+                return json;
             })
             .then((): Action => dispatch(setSheet(id, false)))
             .catch((): Action => dispatch(setSheet('', false)))
@@ -283,11 +285,12 @@ export const requestUpload = (client: Client, photo: Blob|null): AsyncAction<Set
             body: upload,
             credentials: 'include',
             method: 'POST'})
-        .then((response: Response): Promise<UploadResponse> => {
+        .then((response: Response) => Promise.all([response, response.json()]))
+        .then(([response, json]): Promise<UploadResponse> => {
             if (!response.ok) {
-                throw Error(response.statusText);
+                throw Error(json.error);
             }
-            return response.json();
+            return json;
         })
         .then((json: UploadResponse): SetUploadAction => dispatch(setUpload(json.fileID, false, '')))
         .catch((error: Error): SetUploadAction => dispatch(setUpload('', false, error.message)));
@@ -313,9 +316,10 @@ export const requestRegister = (client: Client, photo: Blob|null, method: string
                     method,
                 });
             })
-            .then((response: Response): Promise<string> => {
+            .then((response: Response) => Promise.all([response, response.json()]))
+            .then(([response, json]): Promise<string> => {
                 if (!response.ok) {
-                    throw Error(response.statusText);
+                    throw Error(json.error);
                 }
                 return Promise.resolve(client.id);
             })
@@ -345,11 +349,12 @@ export const requestClient = (id: string): AsyncAction<Action> => {
         if (shouldRequestClient(getState, id)) {
             dispatch(setClient(id, true, {} as Client, ''));
             return fetch(document.location.origin + '/api/user/' + id, {credentials: 'include'})
-                .then((response: Response): Promise<Client> => {
+                .then((response: Response) => Promise.all([response, response.json()]))
+                .then(([response, json]): Promise<Client> => {
                     if (!response.ok) {
-                        throw Error(response.statusText);
+                        throw Error(json.error);
                     }
-                    return response.json();
+                    return json;
                 })
                 .then((c: Client): Action => dispatch(setClient(id, false, c, '')))
             .catch((error: Error): Action => dispatch(setClient(id, false, {} as Client, error.message)));

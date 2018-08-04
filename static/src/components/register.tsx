@@ -75,7 +75,7 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blo
     public render() {
         const {client, edit, manualScan: m, register: r} = this.props;
         const rfid: string = m.id ? m.id : client ? client.id : '';
-        const cb = (p: Blob): void => {
+        const cb = (p: Blob|null): void => {
             this.setState(Object.assign(this.state, {photo: p}));
         };
         const close = (e: React.MouseEvent<HTMLElement>) => {
@@ -185,7 +185,7 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blo
                             </Loadable>
                         </li>
                     </ul>
-                    <TakePhoto cb={cb} />
+                    <TakePhoto cb={cb} url={client ? `/photo/${client.photo}` : ''} />
                     <input
                         type="submit"
                         style={{display: 'block', margin: 'auto'}}

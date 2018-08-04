@@ -1,15 +1,16 @@
 import * as React from 'react';
 import * as Webcam from 'react-webcam';
 
-type blobHandler = (b: Blob) => any;
+type blobHandler = (b: Blob|null) => any;
 
 type TakePhotoProps = {
     size?: number
+    url?: string
     cb?: blobHandler
 };
 
 type TakePhotoState = {
-    saved: boolean
+    retaking: boolean
     src: string|null
 };
 
@@ -23,17 +24,23 @@ export class TakePhoto extends React.Component<TakePhotoProps, TakePhotoState> {
     constructor(props: TakePhotoProps) {
         super(props);
         this.state = {
-            saved: false,
+            retaking: this.props.url ? false : true,
             src: null,
         };
     }
 
     public render() {
-        const {size} = this.props;
-        const {saved, src} = this.state;
-        const buttons: JSX.Element = src ?
-            <button onClick={this.clear}>retake</button>
-            : <button onClick={this.capture}>take photo</button>;
+        const {size, url} = this.props;
+        const {retaking} = this.state;
+        const src = this.state.src ? this.state.src : url;
+        const buttons: JSX.Element = retaking ?
+            (
+                <span>
+                    {url && <button onClick={this.clear} style={{marginRight: '1em'}}>cancel</button>}
+                    <button onClick={this.capture}>take photo</button>
+                </span>
+            )
+            : <button onClick={this.retake}>retake</button>;
         const w: JSX.Element = (
             <Webcam
                 audio={false}
@@ -45,8 +52,8 @@ export class TakePhoto extends React.Component<TakePhotoProps, TakePhotoState> {
         return (
             <div style={{textAlign: 'center'}}>
                 <div className="webcam" style={{height: size, width: size}}>
-                    {src && <img src={src} style={{height: '100%', objectFit: 'cover', width: '100%'}} />}
-                    {!saved && w}
+                    {src && !retaking && <img src={src} style={{height: '100%', objectFit: 'cover', width: '100%'}} />}
+                    {retaking && w}
                 </div>
                 <div style={{textAlign: 'center'}}>
                     {buttons}
@@ -62,7 +69,7 @@ export class TakePhoto extends React.Component<TakePhotoProps, TakePhotoState> {
     private capture = (e: React.MouseEvent<HTMLButtonElement>): void => {
         e.preventDefault();
         const src = this.webcam.getScreenshot();
-        this.setState({saved: false, src});
+        this.setState({retaking: false, src});
         if (!this.props.cb) {
             return;
         }
@@ -89,12 +96,25 @@ export class TakePhoto extends React.Component<TakePhotoProps, TakePhotoState> {
         tctx.drawImage(c, (c.width - m) / 2, (c.height - m) / 2, m, m, 0, 0, m, m);
         t.toBlob((b: Blob): any => {
             f(b);
-            this.setState({saved: true, src: this.state.src});
+            this.setState({retaking: false, src: this.state.src});
         });
+    }
+
+    private retake = (e: React.MouseEvent<HTMLButtonElement>): void => {
+        e.preventDefault();
+        this.setState({retaking: true, src: null});
+        if (!this.props.cb) {
+            return;
+        }
+        this.props.cb(null);
     }
 
     private clear = (e: React.MouseEvent<HTMLButtonElement>): void => {
         e.preventDefault();
-        this.setState({saved: false, src: null});
+        this.setState({retaking: false, src: null});
+        if (!this.props.cb) {
+            return;
+        }
+        this.props.cb(null);
     }
 }
