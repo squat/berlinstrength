@@ -185,7 +185,7 @@ class RegisterForm extends React.Component<RegisterProps & Dispatch, {photo: Blo
                             </Loadable>
                         </li>
                     </ul>
-                    <TakePhoto cb={cb} url={client ? `/photo/${client.photo}` : ''} />
+                    <TakePhoto cb={cb} url={client && client.photo ? `/photo/${client.photo}` : ''} />
                     <input
                         type="submit"
                         style={{display: 'block', margin: 'auto'}}
