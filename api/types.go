@@ -24,7 +24,7 @@ const (
 	emailColumn      = 5
 	photoColumn      = 10
 	rfidColumn       = 9
-	minRowLength     = 6
+	minRowLength     = nameColumn + 1
 	defaultRowLength = 11
 	dateFormat       = "02/01/2006"
 )
@@ -159,11 +159,14 @@ func rowToUser(row []interface{}) (*user, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to parse row field %q", "name")
 	}
-	email, ok := row[emailColumn].(string)
-	if !ok {
-		return nil, fmt.Errorf("failed to parse row field %q", "email")
+	// email, photo, and rfid must be checked conditionally since they are exceptions to the format.
+	var email string
+	if len(row) > emailColumn {
+		email, ok = row[emailColumn].(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse row field %q", "email")
+		}
 	}
-	// photo and rfid must be checked conditionally since they are exceptions to the format.
 	var photo string
 	if len(row) > photoColumn {
 		photo, ok = row[photoColumn].(string)
