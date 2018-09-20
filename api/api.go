@@ -292,7 +292,7 @@ func (a *API) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	id, err := idFromSession(r)
 	if err != nil {
-		log.Warn("failed to find and destroy client for logout: %v", err)
+		log.Warnf("failed to find and destroy client for logout: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -479,7 +479,7 @@ func (a *API) websocketHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		id, err := idFromSession(r)
 		if err != nil {
-			log.Error("failed to upgrade websocket request: %v", err)
+			log.Errorf("failed to upgrade websocket request: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
