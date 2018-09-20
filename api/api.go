@@ -279,17 +279,27 @@ func loginHandler(config *oauth2.Config) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-// logoutHandler destroys the session on POSTs and redirects to home.
+// logoutHandler destroys the session and redirects to home.
 func (a *API) logoutHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		id, err := idFromSession(r)
-		if err != nil {
-			log.Warn("failed to find and destroy client for logout: %v", err)
+	if !a.isAuthenticated(r) {
+		if r.Method == "POST" {
+			w.WriteHeader(http.StatusOK)
 			return
 		}
-		delete(a.clients, id)
-		delete(a.sheets, id)
-		sessionStore.Destroy(w, sessionName)
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	id, err := idFromSession(r)
+	if err != nil {
+		log.Warn("failed to find and destroy client for logout: %v", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	delete(a.clients, id)
+	delete(a.sheets, id)
+	sessionStore.Destroy(w, sessionName)
+	if r.Method == "POST" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -647,6 +657,7 @@ func (a *API) requireLogin(next http.Handler) http.Handler {
 		if !a.isAuthenticated(r) {
 			if r.Method == "POST" {
 				http.Error(w, "", http.StatusUnauthorized)
+				return
 			}
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
