@@ -14,6 +14,7 @@ ExecStart=/usr/bin/docker run --name=traefik -p 443:443 -p 80:80 -v /var/run/doc
 ExecStop=/usr/bin/docker stop traefik
 Restart=on-failure
 RuntimeMaxSec=86400
+TimeoutStartSec=300
 
 [Install]
 WantedBy=multi-user.target

@@ -14,6 +14,7 @@ ExecStop=/usr/bin/docker stop berlinstrength
 Restart=always
 StandardInput=tty-force
 StandardOutput=journal
+TimeoutStartSec=300
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
