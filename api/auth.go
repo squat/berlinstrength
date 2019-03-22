@@ -2,9 +2,14 @@ package api
 
 import (
 	"math/rand"
+	"time"
 
 	"github.com/dghubble/sessions"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 const (
 	letterBytes     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
