@@ -29,3 +29,8 @@ caServer = "https://acme-staging-v02.api.letsencrypt.org/directory"
   [acme.dnsChallenge]
   provider = "cloudflare"
   delayBeforeCheck = 0
+
+[metrics]
+  [metrics.prometheus]
+    addEntryPointsLabels = true
+    addServicesLabels = true
