@@ -6,3 +6,4 @@ statik
 .container*
 .go
 .push*
+.cache
