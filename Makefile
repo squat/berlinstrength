@@ -32,7 +32,7 @@ JS_TARGETS := $(addprefix ./static/dist/,bundle.js bundle.css)
 STATIC_SRC := $(addprefix ./static/,index.html sounds.ogg)
 STATIC_TARGETS := $(addprefix ./static/dist/,index.html sounds.ogg)
 
-BUILD_IMAGE ?= golang:1.10.0-alpine
+BUILD_IMAGE ?= golang:1.13.1-alpine
 
 build: bin/$(ARCH)/$(BIN)
 
@@ -64,22 +64,22 @@ all-push-latest: $(addprefix push-latest-, $(ALL_ARCH))
 bin/$(ARCH):
 	@mkdir -p $@
 
-bin/$(ARCH)/$(BIN): $(SRC) glide.yaml bin/$(ARCH)
+bin/$(ARCH)/$(BIN): $(SRC) go.mod bin/$(ARCH)
+	@mkdir -p bin/$(ARCH)
+	@echo "building: $@"
 	@docker run --rm \
 	    -u $$(id -u):$$(id -g) \
-	    -v $$(pwd):/go/src/$(PKG) \
-	    -v $$(pwd)/bin/$(ARCH):/go/bin \
-	    -v $$(pwd)/.go/std/$(ARCH):/usr/local/go/pkg/linux_$(ARCH)_static \
-	    -w /go/src/$(PKG) \
+	    -v $$(pwd):/$(PROJECT) \
+	    -w /$(PROJECT) \
 	    $(BUILD_IMAGE) \
 	    /bin/sh -c " \
 	        GOARCH=$(ARCH) \
 	        GOOS=linux \
+	        GOCACHE=/$(PROJECT)/.cache \
 		CGO_ENABLED=0 \
-		go build \
-		    -o /go/bin/$(BIN) \
+		go build -mod=vendor -o $@ \
 		    $(LD_FLAGS) \
-		    ./cmd/$(BIN)/... \
+		    ./cmd/$(@F)/... \
 	    "
 
 js: $(JS_TARGETS)
@@ -130,7 +130,7 @@ lint:
 
 test: lint vet
 
-local: $(SRC) glide.yaml
+local: $(SRC) go.mod
 	@GOOS=linux \
 	    CGO_ENABLED=0 \
 	    go build -o bin/$(BIN) \

@@ -142,7 +142,6 @@ func (f *driveFile) Seek(offset int64, whence int) (int64, error) {
 
 	// If the desired offset if behind the current position,
 	// restart the download and seek to the desired position.
-	fmt.Println("REDOWNLOADING")
 	r, err := f.call.Download()
 	if err != nil {
 		return f.position, err
