@@ -13,6 +13,7 @@ import (
 	"github.com/squat/berlinstrength/rfid"
 	"github.com/squat/berlinstrength/websocket"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/sheets/v4"
 )
@@ -65,6 +66,8 @@ type API struct {
 	mux        http.Handler
 	rfid       rfid.RFID
 	sheets     map[string]string
+
+	rfidScansTotal *prometheus.CounterVec
 }
 
 type client struct {

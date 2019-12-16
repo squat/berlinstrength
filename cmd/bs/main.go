@@ -11,7 +11,9 @@ import (
 	"github.com/squat/berlinstrength/api"
 	"github.com/squat/berlinstrength/version"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
+	pversion "github.com/prometheus/common/version"
+	"github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
 
@@ -87,8 +89,16 @@ func main() {
 		File:         f,
 		URL:          &url.URL{Host: u.Host, Scheme: u.Scheme},
 	}
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(
+		pversion.NewCollector("observatorium"),
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+	)
+
 	logrus.Infof("Starting Server listening on :%d\n", flags.port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", flags.port), api.New(&cfg)); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", flags.port), api.New(&cfg, reg, reg)); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
 }

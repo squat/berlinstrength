@@ -18,12 +18,14 @@ import (
 	"github.com/squat/berlinstrength/websocket"
 	"github.com/squat/drivefs"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/dghubble/gologin"
 	"github.com/dghubble/gologin/google"
 	oauthlogin "github.com/dghubble/gologin/oauth2"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rakyll/statik/fs"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	googleOAuth2 "golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
@@ -48,7 +50,15 @@ var (
 )
 
 // New returns a new ServeMux with app routes.
-func New(config *Config) *API {
+func New(config *Config, reg prometheus.Registerer, gat prometheus.Gatherer) *API {
+	if reg == nil {
+		reg = prometheus.DefaultRegisterer
+	}
+	if gat == nil {
+		gat = prometheus.DefaultGatherer
+	}
+	ins := newInstrumentationMiddleware(reg)
+
 	r := mux.NewRouter()
 	oauth2Config := &oauth2.Config{
 		ClientID:     config.ClientID,
@@ -71,30 +81,42 @@ func New(config *Config) *API {
 		mux:        r,
 		rfid:       rfid.New(f, done),
 		sheets:     make(map[string]string),
+		rfidScansTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "berlin_strength_rfid_scans_total",
+				Help: "The number of RFID scans.",
+			},
+			[]string{"result"},
+		),
 	}
+	reg.MustRegister(a.rfidScansTotal)
+
 	// state param cookies require HTTPS by default; disable for localhost development
 	stateConfig := gologin.DefaultCookieConfig
 	if config.URL.Scheme != "https" {
 		stateConfig = gologin.DebugOnlyCookieConfig
 	}
-	r.Handle("/", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
-	r.Handle("/edit/{id}", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithClient(http.HandlerFunc(homeHandler)))))
-	r.Handle("/register", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
-	r.Handle("/sheets", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler))))
-	r.Handle("/scan/{id}", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithClient(http.HandlerFunc(homeHandler)))))
+	r.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(gat, promhttp.HandlerOpts{})).ServeHTTP(w, r)
+	}))
+	r.Handle("/", ins.newHandler("root", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler)))))
+	r.Handle("/edit/{id}", ins.newHandler("edit", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithClient(http.HandlerFunc(homeHandler))))))
+	r.Handle("/register", ins.newHandler("register", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler)))))
+	r.Handle("/sheets", ins.newHandler("sheets", a.initialStateWithID(a.initialStateWithSheets(http.HandlerFunc(homeHandler)))))
+	r.Handle("/scan/{id}", ins.newHandler("scan", a.initialStateWithID(a.initialStateWithSheets(a.initialStateWithClient(http.HandlerFunc(homeHandler))))))
 
-	r.Handle("/login", google.StateHandler(stateConfig, loginHandler(oauth2Config)))
-	r.HandleFunc("/logout", a.logoutHandler)
-	r.Handle("/callback", google.StateHandler(stateConfig, google.CallbackHandler(oauth2Config, a.issueSession(oauth2Config), nil)))
-	r.Handle("/api/ws", a.requireLogin(a.websocketHandler(a.hub)))
-	r.Handle("/api/scan", a.requireLogin(http.HandlerFunc(a.scanHandler))).Methods("GET")
-	r.Handle("/api/user", a.requireLogin(http.HandlerFunc(a.createUserHandler))).Methods("POST")
-	r.Handle("/api/user/{id}", a.requireLogin(http.HandlerFunc(a.getUserHandler))).Methods("GET")
-	r.Handle("/api/user/{id}", a.requireLogin(http.HandlerFunc(a.updateUserHandler))).Methods("PUT")
-	r.Handle("/api/sheet/{id}", a.requireLogin(http.HandlerFunc(a.sheetHandler))).Methods("POST")
-	r.Handle("/api/upload", a.requireLogin(http.HandlerFunc(a.uploadHandler))).Methods("POST")
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(statikFS)))
-	r.PathPrefix("/photo/").Handler(a.requireLogin(http.StripPrefix("/photo/", http.HandlerFunc(a.photoHandler))))
+	r.Handle("/login", ins.newHandler("login", google.StateHandler(stateConfig, loginHandler(oauth2Config))))
+	r.HandleFunc("/logout", ins.newHandler("logout", http.HandlerFunc(a.logoutHandler)))
+	r.Handle("/callback", ins.newHandler("callback", google.StateHandler(stateConfig, google.CallbackHandler(oauth2Config, a.issueSession(oauth2Config), nil))))
+	r.Handle("/api/ws", ins.newHandler("api-ws", a.requireLogin(a.websocketHandler(a.hub))))
+	r.Handle("/api/scan", ins.newHandler("api-scan", a.requireLogin(http.HandlerFunc(a.scanHandler)))).Methods("GET")
+	r.Handle("/api/user", ins.newHandler("api-create-user", a.requireLogin(http.HandlerFunc(a.createUserHandler)))).Methods("POST")
+	r.Handle("/api/user/{id}", ins.newHandler("api-get-user", a.requireLogin(http.HandlerFunc(a.getUserHandler)))).Methods("GET")
+	r.Handle("/api/user/{id}", ins.newHandler("api-update-user", a.requireLogin(http.HandlerFunc(a.updateUserHandler)))).Methods("PUT")
+	r.Handle("/api/sheet/{id}", ins.newHandler("api-sheet", a.requireLogin(http.HandlerFunc(a.sheetHandler)))).Methods("POST")
+	r.Handle("/api/upload", ins.newHandler("api-upload", a.requireLogin(http.HandlerFunc(a.uploadHandler)))).Methods("POST")
+	r.PathPrefix("/static/").Handler(ins.newHandler("static", http.StripPrefix("/static/", http.FileServer(statikFS))))
+	r.PathPrefix("/photo/").Handler(ins.newHandler("photo", a.requireLogin(http.StripPrefix("/photo/", http.HandlerFunc(a.photoHandler)))))
 	a.handleRFID = a.broadcastUser
 	go a.watchRFID()
 	return a
@@ -149,14 +171,24 @@ func (a *API) broadcastUser(scanID string) {
 	for id, sid := range a.sheets {
 		go func(id, sid string) {
 			if c, ok := a.clients[id]; ok {
+				var u *user
+				var err error
+				var j []byte
+				defer func() {
+					if err != nil {
+						a.rfidScansTotal.WithLabelValues("error").Inc()
+						return
+					}
+					a.rfidScansTotal.WithLabelValues("success").Inc()
+				}()
 				a.hub.Send([]byte(`{"scanning":true}`), id)
-				u, _, _, err := findUser(sid, scanID, rfidColumn, c)
+				u, _, _, err = findUser(sid, scanID, rfidColumn, c)
 				if err != nil {
 					a.hub.Send(errorToJSON(err), id)
 					log.Error(err)
 					return
 				}
-				j, err := json.Marshal(u)
+				j, err = json.Marshal(u)
 				if err != nil {
 					a.hub.Send(errorToJSON(err), id)
 					log.Errorf("failed to marshal user to JSON: %v", err)
