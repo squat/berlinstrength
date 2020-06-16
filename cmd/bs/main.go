@@ -92,7 +92,7 @@ func main() {
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
-		pversion.NewCollector("observatorium"),
+		pversion.NewCollector("berlin_strength"),
 		prometheus.NewGoCollector(),
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
 	)
