@@ -32,7 +32,7 @@ JS_TARGETS := $(addprefix ./static/dist/,bundle.js bundle.css)
 STATIC_SRC := $(addprefix ./static/,index.html sounds.ogg)
 STATIC_TARGETS := $(addprefix ./static/dist/,index.html sounds.ogg)
 
-BUILD_IMAGE ?= golang:1.13.1-alpine
+BUILD_IMAGE ?= golang:1.14.2-alpine
 
 build: bin/$(ARCH)/$(BIN)
 
