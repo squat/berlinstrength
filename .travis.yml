@@ -17,12 +17,10 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y -qq yarn
 
+install: true
+
 cache:
   yarn: true
-
-install:
-  - go get -u golang.org/x/lint/golint
-  - go get -u github.com/rakyll/statik
 
 script:
   - make PRODUCTION=1 build

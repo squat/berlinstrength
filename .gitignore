@@ -2,7 +2,7 @@ acme.json
 bin
 dist
 node_modules
-statik
+/statik/
 .container*
 .go
 .push*
