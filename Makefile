@@ -8,6 +8,9 @@ PKG := github.com/squat/$(PROJECT)
 REGISTRY ?= index.docker.io
 IMAGE ?= squat/$(PROJECT)-$(ARCH)
 
+GOLINT_BINARY := bin/golint
+STATIK_BINARY := bin/statik
+
 PRODUCTION ?= 0
 TAG := $(shell git describe --abbrev=0 --tags HEAD 2>/dev/null)
 COMMIT := $(shell git rev-parse HEAD)
@@ -95,16 +98,17 @@ $(STATIC_TARGETS): $(STATIC_SRC)
 	cp static/sounds.ogg static/dist/sounds.ogg
 
 statik: statik/statik.go
-statik/statik.go: $(JS_TARGETS) $(STATIC_TARGETS)
-	statik -src=./static/dist -f -m
+statik/statik.go: $(JS_TARGETS) $(STATIC_TARGETS) $(STATIK_BINARY)
+	$(STATIK_BINARY) -src=./static/dist -f -m
+	gofmt -w -s $@
 
 fmt:
 	@echo $(GO_PKGS)
 	gofmt -w -s $(GO_FILES)
 
-lint:
+lint: $(GOLINT_BINARY)
 	@echo 'golint $(GO_PKGS)'
-	@lint_res=$$(golint $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
+	@lint_res=$$($(GOLINT_BINARY) $(GO_PKGS)); if [ -n "$$lint_res" ]; then \
 		echo ""; \
 		echo "Golint found style issues. Please check the reported issues"; \
 		echo "and fix them if necessary before submitting the code for review:"; \
@@ -182,3 +186,9 @@ vet:
 		echo "and fix them if necessary before submitting the code for review."; \
 		exit 1; \
 	fi
+
+$(GOLINT_BINARY):
+	go build -mod=vendor -o $@ golang.org/x/lint/golint
+
+$(STATIK_BINARY):
+	go build -mod=vendor -o $@ github.com/rakyll/statik
