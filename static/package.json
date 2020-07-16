@@ -24,7 +24,7 @@
     "@types/react-webcam": "*",
     "history": "^4.7.2",
     "howler": "^2.0.9",
-    "lodash": "^4.17.4",
+    "lodash": "^4.17.19",
     "postcss-extend": "^1.0.5",
     "react": "^16.2.0",
     "react-dom": "^16.0.0",
