@@ -7,7 +7,7 @@ Wants=traefik.service
 [Service]
 ExecStartPre=-/usr/bin/docker kill prometheus
 ExecStartPre=-/usr/bin/docker rm prometheus
-ExecStartPre=/usr/bin/docker pull prom/prometheus
+ExecStartPre=-/usr/bin/docker pull prom/prometheus
 ExecStart=/usr/bin/docker run --name=prometheus -l "traefik.enable=true" -l "traefik.basic.frontend.rule=Host:metrics.berlinstrength.pullu.ps" -l "traefik.basic.port=9090" -l "traefik.basic.protocol=http" --user=65534 -v /opt/berlinstrength/prometheus.yml:/prometheus/prometheus.yml prom/prometheus --config.file=/prometheus/prometheus.yml
 ExecStop=/usr/bin/docker stop prometheus
 Restart=always
